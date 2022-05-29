@@ -1,0 +1,18 @@
+{
+    "block.logwow.wisp_core": "Wisp Core",
+    "block.logwow.wisp_connection_node": "Wisp Connector",
+
+    "item.logwow.wisp": "Wisp",
+    "item.logwow.wisp_provider_enhancement": "Provider Enhancement",
+
+    "container.logwow.basic_wisp_menu": "Wisp",
+
+    "logwow.wisp_contents": "Enhancements",
+    "logwow.side_config": "Side Config",
+    "logwow.blacklist": "Blacklist",
+    "logwow.whitelist": "Whitelist",
+    "logwow.item_filter": "Item Filter",
+    "logwow.tag_filter": "Tag Filter",
+
+    "logwow.enhancement.provider": "Provider"
+}

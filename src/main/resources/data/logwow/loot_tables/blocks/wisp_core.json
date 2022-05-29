@@ -1,0 +1,30 @@
+{
+    "type": "minecraft:block",
+    "pools":
+    [
+      {
+        "rolls":1,
+        "entries":
+        [
+          {
+            "type": "minecraft:item",
+            "name": "logwow:wisp_core"
+          }
+        ],
+        "conditions":
+        [
+          {
+            "condition": "minecraft:block_state_property",
+            "block": "logwow:wisp_core",
+            "properties":
+            {
+              "type": "core"
+            }
+          },
+          {
+            "condition": "minecraft:survives_explosion"
+          }
+        ]
+      }
+    ]
+}

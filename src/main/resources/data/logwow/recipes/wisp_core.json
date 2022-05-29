@@ -1,0 +1,18 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern":
+    [
+      "   ",
+      "x x",
+      "   "
+    ],
+    "key":
+    {
+      "x": { "item": "minecraft:clay" }
+    },
+    "result":
+    {
+      "item": "logwow:wisp_core",
+      "count": 1
+    }
+}

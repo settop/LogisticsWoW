@@ -1,0 +1,6 @@
+{
+    "variants":
+    {
+        "": { "model": "logwow:block/wisp_connection_node" }
+    }
+}
