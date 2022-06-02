@@ -19,28 +19,14 @@ public class ChunkWisps
     //unregistered refers to objects that have been claimed, but not are not part of a network
     //registered refers to objects that are part of a network
 
-    public ArrayList<WispBase> unclaimedWispsInChunk = new ArrayList<>();
     public ArrayList<WispBase> unregisteredWispsInChunk = new ArrayList<>();
-    public ArrayList<WispBase> registeredWispsInChunk = new ArrayList<>();
-
-    public ArrayList<WispNode> unclaimedWispConnectionNodes = new ArrayList<>();
     public ArrayList<WispNode> unregisteredWispConnectionNodes = new ArrayList<>();
-    public ArrayList<WispNode> registeredWispConnectionNodes = new ArrayList<>();
 
     public CompoundTag save()
     {
         //don't save unclaimed, something must have happened to remove their corresponding block entity
-        if(!unclaimedWispsInChunk.isEmpty())
-        {
-            LogisticsWoW.LOGGER.warn("Unclaimed wisps in chunk on save");
-        }
-        if(!unclaimedWispConnectionNodes.isEmpty())
-        {
-            LogisticsWoW.LOGGER.warn("Unclaimed nodes in chunk on save");
-        }
 
-        if(unregisteredWispsInChunk.isEmpty() && registeredWispsInChunk.isEmpty() &&
-                unregisteredWispConnectionNodes.isEmpty() && registeredWispConnectionNodes.isEmpty())
+        if(unregisteredWispsInChunk.isEmpty() && unregisteredWispConnectionNodes.isEmpty())
         {
             //nothing to save
             return null;
@@ -50,26 +36,30 @@ public class ChunkWisps
         ListTag wisps = new ListTag();
         for( WispBase wisp : unregisteredWispsInChunk )
         {
-            CompoundTag wispNBT = wisp.Save();
-            wisps.add(wispNBT);
-        }
-        for( WispBase wisp : registeredWispsInChunk )
-        {
-            CompoundTag wispNBT = wisp.Save();
-            wisps.add(wispNBT);
+            if(wisp.claimed)
+            {
+                CompoundTag wispNBT = wisp.Save();
+                wisps.add(wispNBT);
+            }
+            else
+            {
+                LogisticsWoW.LOGGER.error("Unclaimed wisp in chunk on save");
+            }
         }
         nbt.put("wisps", wisps);
 
         ListTag nodes = new ListTag();
         for( WispNode node : unregisteredWispConnectionNodes )
         {
-            CompoundTag nodeNBT = node.Save();
-            nodes.add(nodeNBT);
-        }
-        for( WispNode node : registeredWispConnectionNodes )
-        {
-            CompoundTag nodeNBT = node.Save();
-            nodes.add(nodeNBT);
+            if(node.claimed)
+            {
+                CompoundTag nodeNBT = node.Save();
+                nodes.add(nodeNBT);
+            }
+            else
+            {
+                LogisticsWoW.LOGGER.error("Unclaimed node in chunk on save");
+            }
         }
         nbt.put("nodes", nodes);
 
@@ -78,8 +68,7 @@ public class ChunkWisps
 
     public void load(ResourceLocation dim, CompoundTag nbt)
     {
-        if(!unclaimedWispsInChunk.isEmpty() || !unregisteredWispsInChunk.isEmpty() || !registeredWispsInChunk.isEmpty() ||
-                !unclaimedWispConnectionNodes.isEmpty() || !unregisteredWispConnectionNodes.isEmpty() || !registeredWispConnectionNodes.isEmpty() )
+        if(!unregisteredWispsInChunk.isEmpty() || !unregisteredWispConnectionNodes.isEmpty())
         {
             LogisticsWoW.LOGGER.warn("Duplicate load in ChunkWisps");
             return;
@@ -91,7 +80,7 @@ public class ChunkWisps
             for (int i = 0; i < wisps.size(); ++i)
             {
                 WispBase loadedWisp = WispFactory.LoadWisp(dim, wisps.getCompound(i));
-                unclaimedWispsInChunk.add(loadedWisp);
+                unregisteredWispsInChunk.add(loadedWisp);
             }
         }
         if(nbt.contains("nodes"))
@@ -99,7 +88,7 @@ public class ChunkWisps
             ListTag nodes = nbt.getList("nodes", nbt.getId());
             for(int i = 0; i < nodes.size(); ++i)
             {
-                unclaimedWispConnectionNodes.add(WispNode.ReadNode(nodes.getCompound(i)));
+                unregisteredWispConnectionNodes.add(WispNode.ReadNode(nodes.getCompound(i)));
             }
         }
     }

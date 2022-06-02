@@ -12,6 +12,7 @@ public class WispConnectionNodeBlockEntity extends BlockEntity
 {
     private WispNode node;
     private int autoConnectRange = 8;
+    private boolean unloading = false;
 
     public WispConnectionNodeBlockEntity(BlockPos pos, BlockState state)
     {
@@ -60,6 +61,7 @@ public class WispConnectionNodeBlockEntity extends BlockEntity
     public void onChunkUnloaded()
     {
         super.onChunkUnloaded();
+        unloading = true;
         if(node != null)
         {
             //ChunkWispData.RemoveNode(world, node);
@@ -70,7 +72,7 @@ public class WispConnectionNodeBlockEntity extends BlockEntity
     public void setRemoved()
     {
         super.setRemoved();
-        if(!level.isClientSide)
+        if(!level.isClientSide && !unloading)
         {
             if (node != null)
             {

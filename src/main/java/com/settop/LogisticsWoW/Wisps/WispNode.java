@@ -42,15 +42,15 @@ public class WispNode
             this.nodePos = nodePos;
         }
 
-        public WeakReference<WispNode> node;
+        public WeakReference<WispNode> node;//should only be null when not part of a network
         public final eConnectionType connectionType;
         public final BlockPos nodePos;
     }
 
     private BlockPos pos;
     public int autoConnectRange = 0;
-    public ArrayList<Connection> inactiveConnections;
     public ArrayList<Connection> connectedNodes;
+    public boolean claimed = false;
 
     //networkConnection points to the node it is connected to the network with
     public WispNetwork connectedNetwork;
@@ -59,13 +59,11 @@ public class WispNode
     protected WispNode()
     {
         //expect the pos and dim to be set shortly
-        inactiveConnections = new ArrayList<>();
         connectedNodes = new ArrayList<>();
     }
     public WispNode(BlockPos pos)
     {
         this.pos = pos;
-        inactiveConnections = new ArrayList<>();
         connectedNodes = new ArrayList<>();
     }
 
@@ -104,71 +102,20 @@ public class WispNode
     }
     public void DisconnectFromWispNetwork(WispNetwork wispNetwork)
     {
+        connectedNetwork = null;
+        networkConnectionNode = null;
     }
 
     public void RemoveFromWorld(Level level)
     {
     }
 
-    //called when a node in the same or neighbouring chunk is loaded
-    public void NotifyNearbyNodeLoad(WispNode loadedNode)
-    {
-        for(Iterator<Connection> it = inactiveConnections.iterator(); it.hasNext();)
-        {
-            Connection inactiveConnection = it.next();
-            if(inactiveConnection.nodePos.equals(loadedNode.pos))
-            {
-                inactiveConnection.node = new WeakReference<>(loadedNode);
-                connectedNodes.add(inactiveConnection);
-
-                it.remove();
-                return;
-            }
-        }
-    }
-
-    //called when this chunk or a neighbouring chunk has finished loading
-    public boolean NotifyNearbyChunkFinishedLoad(ChunkPos chunkPos)
-    {
-        boolean lostNetworkConnection = false;
-        //remove any inactive connections to a chunk that has finished loading, node must have vanished
-        for(Iterator<Connection> it = inactiveConnections.iterator(); it.hasNext();)
-        {
-            Connection inactiveConnection = it.next();
-            if(Utils.GetChunkPos(inactiveConnection.nodePos).equals(chunkPos))
-            {
-                it.remove();
-                if(inactiveConnection == networkConnectionNode)
-                {
-                    networkConnectionNode = null;
-                    lostNetworkConnection = true;
-                }
-            }
-        }
-        return lostNetworkConnection;
-    }
-
-    public void NotifyNearbyChunkUnload(ChunkPos chunkPos)
-    {
-        for(Iterator<Connection> it = connectedNodes.iterator(); it.hasNext();)
-        {
-            Connection activeConnection = it.next();
-            if(Utils.GetChunkPos(activeConnection.nodePos).equals(chunkPos))
-            {
-                //this node is going inactive
-                activeConnection.node = null;
-                inactiveConnections.add(activeConnection);
-                it.remove();
-            }
-        }
-    }
-
     public boolean CanConnectToPos(Level world, Vec3 target, int connectionRange)
     {
-        double rangeSq = (connectionRange * connectionRange) + 0.01;
-
         Vec3 startPos = Vec3.atCenterOf(pos);
-        if(target.distanceToSqr(startPos) > rangeSq)
+        Vec3 offset = target.subtract(startPos);
+        double manhattanDistance = Math.abs(offset.x) + Math.abs(offset.y) + Math.abs(offset.z);
+        if(manhattanDistance > connectionRange + 0.5f)
         {
             //too far
             return false;
@@ -236,18 +183,6 @@ public class WispNode
 
             nodeConnections.add(connectionNBT);
         }
-        for(WispNode.Connection connection : node.inactiveConnections)
-        {
-            CompoundTag connectionNBT = new CompoundTag();
-            connectionNBT.putInt("type", connection.connectionType.ordinal());
-            if(connection == node.networkConnectionNode)
-            {
-                connectionNBT.putBoolean("isNetworkConnection", true);
-            }
-            connectionNBT.put("pos", NbtUtils.writeBlockPos(connection.nodePos));
-
-            nodeConnections.add(connectionNBT);
-        }
         nbt.put("nodes", nodeConnections);
 
         if(node.connectedNetwork != null)
@@ -281,7 +216,7 @@ public class WispNode
             BlockPos connectionNodePos = NbtUtils.readBlockPos(connectionNBT.getCompound("pos"));
 
             Connection nodeConnectionData = new Connection(connectionNodePos, connectionType);
-            inactiveConnections.add(nodeConnectionData);
+            connectedNodes.add(nodeConnectionData);
 
             if(connectionNBT.contains("isNetworkConnection"))
             {

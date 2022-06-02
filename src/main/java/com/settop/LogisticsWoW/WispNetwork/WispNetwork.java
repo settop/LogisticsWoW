@@ -3,7 +3,10 @@ package com.settop.LogisticsWoW.WispNetwork;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix4f;
+import com.settop.LogisticsWoW.LogisticsWoW;
+import com.settop.LogisticsWoW.Wisps.ChunkWisps;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
@@ -21,9 +24,8 @@ import net.minecraftforge.client.event.RenderLevelLastEvent;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.lang.reflect.Array;
+import java.util.*;
 
 public class WispNetwork
 {
@@ -43,13 +45,13 @@ public class WispNetwork
         private ArrayList<WispItemSource> itemSources;
     }
 
-    private static class ChunkData
+    public static class ChunkData
     {
-        public final HashMap<BlockPos, WispBase> wisps = new HashMap<>();
-        private final HashMap<BlockPos, WispNode> nodes = new HashMap<>();
+        public final ArrayList<WispBase> wisps = new ArrayList<>();
+        private final ArrayList<WispNode> nodes = new ArrayList<>();
     }
 
-    private static class DimensionData
+    public static class DimensionData
     {
         public HashMap<ChunkPos, ChunkData> chunkData = new HashMap<>();
 
@@ -85,12 +87,6 @@ public class WispNetwork
         nodeB.connectedNodes.add(new WispNode.Connection(nodeA, type));
     }
 
-    private static void SetupNodeConnection(WispNode node, WispBase wisp, WispNode.eConnectionType type)
-    {
-        node.connectedNodes.add(new WispNode.Connection(wisp, type));
-        wisp.connectedNodes.add(new WispNode.Connection(node, type));
-    }
-
     public WispNetwork(ResourceLocation dim, BlockPos pos)
     {
         this.dim = dim;
@@ -101,14 +97,25 @@ public class WispNetwork
     public BlockPos GetPos() { return pos; }
 
     @Nullable
-    private ChunkData GetChunkData(Level world, BlockPos pos)
+    private DimensionData GetDimensionData(Level world)
     {
-        DimensionData dimData = dimensionData.get(world.dimension().location());
+        return dimensionData.get(world.dimension().location());
+    }
+
+    @Nullable
+    private ChunkData GetChunkData(ResourceLocation dimKey, BlockPos pos)
+    {
+        DimensionData dimData = dimensionData.get(dimKey);
         if(dimData != null)
         {
             return dimData.GetChunkData(pos);
         }
         return null;
+    }
+    @Nullable
+    private ChunkData GetChunkData(Level world, BlockPos pos)
+    {
+        return GetChunkData(world.dimension().location(), pos);
     }
     @Nullable
     private ChunkData GetChunkData(Level world, int chunkX, int chunkZ)
@@ -133,24 +140,65 @@ public class WispNetwork
         ChunkData chunkData = GetChunkData(world, inPos);
         if(chunkData != null)
         {
-            return chunkData.wisps.get(inPos);
+            for (WispBase wisp : chunkData.wisps)
+            {
+                if (wisp.GetPos().equals(inPos))
+                {
+                    return wisp;
+                }
+            }
+        }
+        return null;
+    }
+
+    public WispNode TryClaimExistingNode(Level world, BlockPos inPos)
+    {
+        ChunkData chunkData = GetChunkData(world, inPos);
+        if(chunkData == null)
+        {
+            return null;
+        }
+
+        for (WispNode existingNode : chunkData.nodes)
+        {
+            if (existingNode.GetPos().equals(inPos))
+            {
+                if(existingNode.claimed)
+                {
+                    throw new RuntimeException("Trying to claim an already claimed node");
+                }
+                existingNode.claimed = true;
+                return existingNode;
+            }
+        }
+
+        return null;
+    }
+
+    public WispNode GetNode(ResourceLocation dimKey, BlockPos inPos)
+    {
+        ChunkData chunkData = GetChunkData(dimKey, inPos);
+        if(chunkData != null)
+        {
+            for (WispNode node : chunkData.nodes)
+            {
+                if (node.GetPos().equals(inPos))
+                {
+                    return node;
+                }
+            }
         }
         return null;
     }
 
     public WispNode GetNode(Level world, BlockPos inPos)
     {
-        ChunkData chunkData = GetChunkData(world, inPos);
-        if(chunkData != null)
-        {
-            return chunkData.nodes.get(inPos);
-        }
-        return null;
+        return GetNode(world.dimension().location(), inPos);
     }
 
     public boolean TryConnectWisp(Level world, WispBase wisp)
     {
-        if(!wisp.inactiveConnections.isEmpty() || !wisp.connectedNodes.isEmpty())
+        if(!wisp.connectedNodes.isEmpty())
         {
             throw new RuntimeException("Trying to connect wisp to wisp network, but it already has connections");
         }
@@ -169,7 +217,7 @@ public class WispNetwork
                 {
                     continue;
                 }
-                for(WispNode node : chunkData.nodes.values())
+                for(WispNode node : chunkData.nodes)
                 {
                     if(node.CanConnectToPos(world, Vec3.atCenterOf(wisp.GetPos()), node.autoConnectRange))
                     {
@@ -181,7 +229,96 @@ public class WispNetwork
 
         if(!wisp.connectedNodes.isEmpty())
         {
-            EnsureChunkData(world, pos).wisps.put(wisp.GetPos(), wisp);
+            EnsureChunkData(world, wisp.GetPos()).wisps.add(wisp);
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    public boolean TryAndConnectNodeToNetwork(Level level, WispNode node)
+    {
+        boolean hasConnected = false;
+        if(level.dimension().location() == dim)
+        {
+            //same dimension, try and connect directly
+            Vec3 testPos = GetClosestPos(node.GetPos());
+            if (node.CanConnectToPos(level, testPos, node.autoConnectRange))
+            {
+                //node is connected directly to the network
+                AddNode(level, node);
+                hasConnected = true;
+            }
+        }
+
+        DimensionData dimData = GetDimensionData(level);
+        if(dimData == null)
+        {
+            return hasConnected;
+        }
+
+        final Vec3i maxAutoConnectRangeVec = new Vec3i(WispNode.MaxAutoConnectRange, 0, WispNode.MaxAutoConnectRange);
+        //see if we can get a connection via any nearby nodes
+        ChunkPos chunkMinPos = Utils.GetChunkPos(node.GetPos().subtract( maxAutoConnectRangeVec));
+        ChunkPos chunkMaxPos = Utils.GetChunkPos(node.GetPos().offset( maxAutoConnectRangeVec));
+
+        boolean needsAdding = false;
+
+        for(int x = chunkMinPos.x; x <= chunkMaxPos.x; ++x)
+        for(int z = chunkMinPos.z; z <= chunkMaxPos.z; ++z)
+        {
+            ChunkData nearbyChunk = dimData.GetChunkData(x, z);
+            if(nearbyChunk != null)
+            {
+                for(WispNode registeredNode : nearbyChunk.nodes)
+                {
+                    if(registeredNode == node)
+                    {
+                        continue;
+                    }
+                    int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), node.GetAutoConnectRange());
+                    if(node.CanConnectToPos(level, Vec3.atCenterOf(registeredNode.GetPos()), autoConnectRangeToCheck))
+                    {
+                        if(!hasConnected)
+                        {
+                            node.AddConnectionAndNetworkConnection(registeredNode, WispNode.eConnectionType.AutoConnect);
+                            needsAdding = true;
+                            hasConnected = true;
+                        }
+                        else
+                        {
+                            node.EnsureConnection(registeredNode, WispNode.eConnectionType.AutoConnect);
+                        }
+                    }
+                }
+            }
+        }
+
+        if(needsAdding)
+        {
+            AddNode(level, node);
+        }
+
+        return hasConnected;
+    }
+    public boolean TryAndConnectNodeToNetworkViaNode(Level level, WispNode nodeToConnect, WispNode connectedNode)
+    {
+        if(nodeToConnect.connectedNetwork != null)
+        {
+            throw new RuntimeException("Trying to connect a node that is already connected");
+        }
+        if(connectedNode.connectedNetwork != this)
+        {
+            throw new RuntimeException("Trying to connect via a node that is not connected to this network");
+        }
+        int autoConnectRangeToCheck = Math.max(nodeToConnect.GetAutoConnectRange(), connectedNode.GetAutoConnectRange());
+
+        if(connectedNode.CanConnectToPos(level, Vec3.atCenterOf(nodeToConnect.GetPos()), autoConnectRangeToCheck))
+        {
+            nodeToConnect.AddConnectionAndNetworkConnection(connectedNode, WispNode.eConnectionType.AutoConnect);
+            AddNode(level, nodeToConnect);
             return true;
         }
         else
@@ -192,36 +329,14 @@ public class WispNetwork
 
     public void RemoveWisp(Level world, WispBase wisp)
     {
-        EnsureChunkData(world, wisp.GetPos()).wisps.remove(wisp.GetPos(), wisp);
+        EnsureChunkData(world, wisp.GetPos()).wisps.remove(wisp);
         //ToDo
     }
 
-    public void AddNode(WispNode node)
+    public void AddNode(Level world, WispNode node)
     {
         node.ConnectToWispNetwork(this);
-    }
-
-    public boolean TryDirectConnectNode(Level world, WispNode node)
-    {
-        if(node.IsConnectedToANetwork())
-        {
-            throw new RuntimeException("Trying to connect node to wisp network, but it already has connections");
-        }
-
-        if(!world.dimension().location().equals(dim))
-        {
-            return false;
-        }
-        Vec3 testPos = GetClosestPos(node.GetPos());
-        if (node.CanConnectToPos(world, testPos, node.autoConnectRange))
-        {
-            //node is connected directly to the network
-            node.ConnectToWispNetwork(this);
-            AddNode(node);
-            return true;
-        }
-
-        return false;
+        EnsureChunkData(world, node.GetPos()).nodes.add(node);
     }
 
 
@@ -241,7 +356,7 @@ public class WispNetwork
                 {
                     continue;
                 }
-                for(WispBase wisp : chunkData.wisps.values())
+                for(WispBase wisp : chunkData.wisps)
                 {
                     if(node.CanConnectToPos(world, Vec3.atCenterOf(wisp.GetPos()), node.autoConnectRange))
                     {
@@ -263,53 +378,63 @@ public class WispNetwork
             }
             else if(n.GetConnectedNetwork() == null)
             {
+                //it's another orphaned node
                 return false;
             }
             else if(n.networkConnectionNode.node.get() == sourceNode)
             {
+                //the network loops back to this source node
                 return false;
             }
         }
     }
 
-    private void RemoveNodeInternal(Level world, WispNode node, ArrayList<WispBase> o_orphanedWisps)
+    private void RemoveNodeInternal(Level world, WispNode node)
     {
-        EnsureChunkData(world, node.GetPos()).nodes.remove(node.GetPos(), node);
-/*
-        for(WispBase wisp : node.connectedWisps)
+        EnsureChunkData(world, node.GetPos()).nodes.remove(node);
+        node.DisconnectFromWispNetwork(this);
+
+        //now ensure that all the auto connections are removed
+        for(Iterator<WispNode.Connection> connectionIt = node.connectedNodes.iterator(); connectionIt.hasNext();)
         {
-            wisp.connections.remove(node);
-            if(wisp.connections.isEmpty())
+            WispNode.Connection connection = connectionIt.next();
+            if(connection.connectionType != WispNode.eConnectionType.AutoConnect)
             {
-                o_orphanedWisps.add(wisp);
-                RemoveWisp(world, wisp);
+                continue;
             }
+
+            WispNode connectedNode = connection.node.get();
+            connectedNode.connectedNodes.removeIf(otherConnection->otherConnection.nodePos.equals(node.GetPos()));
+            connectionIt.remove();
         }
-        node.connectedWisps.clear();
-        */
     }
 
-    //Returns any nodes wisps that are no longer connected to the network
-    public void RemoveNode(Level world, WispNode node)
+    //Returns any nodes that are no longer connected to the network
+    public ArrayList<WispNode> RemoveNode(Level world, WispNode node)
     {
-        node.DisconnectFromWispNetwork(this);
-        /*
-        RemoveNodeInternal(world, node, o_orphanedWisps);
-
+        //now need to remove it's connections
         ArrayList<WispNode> orphanedNodes = new ArrayList<>();
-
         for(WispNode.Connection connection : node.connectedNodes)
         {
-            connection.node.connectedNodes.removeIf((otherConnection)->otherConnection.node == node);
-            if(connection.node.networkConnectionNode != null && connection.node.networkConnectionNode.node == node)
+            WispNode otherNode = connection.node.get();
+            for(Iterator<WispNode.Connection> otherConnectionIt = otherNode.connectedNodes.iterator(); otherConnectionIt.hasNext();)
             {
-                //the connected node was connected to the network via the removed node
-                orphanedNodes.add(connection.node);
-                connection.node.connectedNetwork = null;
-                connection.node.networkConnectionNode = null;
+                WispNode.Connection otherConnection = otherConnectionIt.next();
+                if(otherConnection.nodePos.equals(node.GetPos()))
+                {
+                    if(otherNode.networkConnectionNode == otherConnection)
+                    {
+                        otherNode.networkConnectionNode = null;
+                        otherNode.connectedNetwork = null;
+                        orphanedNodes.add(otherNode);
+                    }
+                    otherConnectionIt.remove();
+                    break;
+                }
             }
         }
         node.connectedNodes.clear();
+        RemoveNodeInternal(world, node);
 
         boolean updated = true;
         while(updated)
@@ -321,9 +446,9 @@ public class WispNetwork
                 //first check if we can connect via another connected node
                 for (WispNode.Connection connection : orphanedNode.connectedNodes)
                 {
-                    if (CheckIfValidNetworkConnection(orphanedNode, connection.node))
+                    if (CheckIfValidNetworkConnection(orphanedNode, connection.node.get()))
                     {
-                        orphanedNode.connectedNetwork = connection.node.connectedNetwork;
+                        orphanedNode.connectedNetwork = this;
                         orphanedNode.networkConnectionNode = connection;
                         break;
                     }
@@ -335,39 +460,29 @@ public class WispNetwork
                     updated = true;
                     orphanedNodes.remove(i);
                     --i;
-                    continue;
                 }
                 else
                 {
                     //spread the orphanness
                     for (WispNode.Connection connection : orphanedNode.connectedNodes)
                     {
-                        if (connection.node.networkConnectionNode != null && connection.node.networkConnectionNode.node == orphanedNode)
+                        WispNode connectedNode = connection.node.get();
+                        if (connectedNode.networkConnectionNode != null && connectedNode.networkConnectionNode.nodePos.equals(orphanedNode.GetPos()))
                         {
-                            connection.node.networkConnectionNode = null;
-                            connection.node.connectedNetwork = null;
-                            orphanedNodes.add(connection.node);
+                            connectedNode.networkConnectionNode = null;
+                            connectedNode.connectedNetwork = null;
+                            orphanedNodes.add(connection.node.get());
                         }
                     }
                 }
             }
         }
-
-        //any remaining orphaned nodes couldn't be re-connected to the network
         for(WispNode orphanedNode : orphanedNodes)
         {
-            for(Iterator<WispNode.Connection> it = orphanedNode.connectedNodes.iterator(); it.hasNext();)
-            {
-                WispNode.Connection connection = it.next();
-                connection.node.connectedNodes.removeIf((otherConnection) -> otherConnection.node == orphanedNode);
-                it.remove();
-            }
-
-            RemoveNodeInternal(world, orphanedNode, o_orphanedWisps);
-            o_orphanedNodes.add(orphanedNode);
+            RemoveNodeInternal(world, orphanedNode);
         }
 
-         */
+        return orphanedNodes;
     }
 
     public Vec3 GetClosestPos(Vec3 inPos)
@@ -419,11 +534,42 @@ public class WispNetwork
                 WispBase loadedWisp = WispFactory.LoadWisp(dimensionName, wispNBT);
 
                 BlockPos wispPos = loadedWisp.GetPos();
-                dimData.EnsureChunkData(wispPos).wisps.put(wispPos, loadedWisp);
+                dimData.EnsureChunkData(wispPos).wisps.add(loadedWisp);
+            }
+            ListTag networkNodes = dimDataNBT.getList("nodes", nbt.getId());
+            for(int i = 0; i < networkNodes.size(); ++i)
+            {
+                WispNode loadedNode = WispNode.ReadNode(networkNodes.getCompound(i));
+                dimData.EnsureChunkData(loadedNode.GetPos()).nodes.add(loadedNode);
             }
 
             dimensionData.put(dimensionName, dimData);
         }
+
+        //now connect all the node references
+        for(Map.Entry<ResourceLocation, DimensionData> dimData : dimensionData.entrySet())
+        {
+             for(ChunkData chunkData : dimData.getValue().chunkData.values())
+             {
+                 for(WispNode node : chunkData.nodes)
+                 {
+                     WeakReference<WispNode> nodeWeak = new WeakReference<>(node);
+                     node.ConnectToWispNetwork(this);
+                     for(WispNode.Connection connection : node.connectedNodes)
+                     {
+                         WispNode otherNode = GetNode(dimData.getKey(), connection.nodePos);
+                         for(WispNode.Connection otherConnection : otherNode.connectedNodes)
+                         {
+                             if(otherConnection.nodePos.equals(node.GetPos()))
+                             {
+                                 otherConnection.node = nodeWeak;
+                             }
+                         }
+                     }
+                 }
+             }
+        }
+
     }
 
     public CompoundTag write(CompoundTag compound)
@@ -437,11 +583,11 @@ public class WispNetwork
             ListTag networkNodes = new ListTag();
             for(ChunkData chunkData : dimData.chunkData.values())
             {
-                for(WispBase wisp : chunkData.wisps.values())
+                for(WispBase wisp : chunkData.wisps)
                 {
                     networkWisps.add(wisp.Save());
                 }
-                for(WispNode node : chunkData.nodes.values())
+                for(WispNode node : chunkData.nodes)
                 {
                     networkNodes.add(WispNode.Write(node, new CompoundTag()));
                 }
@@ -461,6 +607,60 @@ public class WispNetwork
     @OnlyIn(Dist.CLIENT)
     public void Render(RenderLevelLastEvent evt, PoseStack poseStack, VertexConsumer builder)
     {
+        poseStack.pushPose();
+        poseStack.translate(0.5f, 0.5f, 0.5f);
+        Matrix4f matrix = poseStack.last().pose();
 
+
+        for (DimensionData dimData : dimensionData.values())
+        {
+            for (ChunkData chunkData : dimData.chunkData.values())
+            {
+                chunkData.nodes.forEach((node) ->
+                {
+                    for (WispNode.Connection connection : node.connectedNodes)
+                    {
+                        float rgb[] = {0.f, 1.f, 0.f};
+                        if (connection.connectionType == WispNode.eConnectionType.Link)
+                        {
+                            rgb[0] = 0.f;
+                            rgb[1] = 0.f;
+                            rgb[2] = 1.f;
+                        }
+
+                        builder.vertex(matrix, node.GetPos().getX(), node.GetPos().getY(), node.GetPos().getZ())
+                                .color(rgb[0], rgb[1], rgb[2], 0.8f)
+                                //.overlayCoords(OverlayTexture.NO_OVERLAY)
+                                //.lightmap(15728880)
+                                .normal(0.f, 1.f, 0.f)
+                                .endVertex();
+
+                        builder.vertex(matrix, connection.node.get().GetPos().getX(), connection.node.get().GetPos().getY(), connection.node.get().GetPos().getZ())
+                                .color(rgb[0], rgb[1], rgb[2], 0.8f)
+                                //.overlayCoords(OverlayTexture.NO_OVERLAY)
+                                //.lightmap(15728880)
+                                .normal(0.f, 1.f, 0.f)
+                                .endVertex();
+
+                    }
+
+                    //show connection to the network
+                    builder.vertex(matrix, node.GetPos().getX(), node.GetPos().getY(), node.GetPos().getZ())
+                            .color(1.f, 1.f, 1.f, 0.8f)
+                            //.overlayCoords(OverlayTexture.NO_OVERLAY)
+                            //.lightmap(15728880)
+                            .normal(0.f, 1.f, 0.f)
+                            .endVertex();
+
+                    builder.vertex(matrix, pos.getX(), pos.getY(), pos.getZ())
+                            .color(0.4f, 0.4f, 0.4f, 0.8f)
+                            //.overlayCoords(OverlayTexture.NO_OVERLAY)
+                            //.lightmap(15728880)
+                            .normal(0.f, 1.f, 0.f)
+                            .endVertex();
+                });
+            }
+            poseStack.popPose();
+        }
     }
 }

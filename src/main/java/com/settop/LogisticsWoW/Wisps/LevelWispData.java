@@ -119,47 +119,6 @@ public class LevelWispData extends SavedData
         }
     }
 
-    private void NotifyChunkOfNeighbourChunkLoad(ChunkWisps chunkToNotify, ChunkPos loadedChunkPos ,ChunkWisps loadedChunk)
-    {
-        //This isn't as bad as it looks, most of these arrays are going to be small or empty with one having most of the entries
-        Consumer<? super WispNode> notifier = (node)->
-        {
-            for(WispNode loadedNode : loadedChunk.unclaimedWispConnectionNodes){node.NotifyNearbyNodeLoad(loadedNode);}
-            for(WispNode loadedNode : loadedChunk.unregisteredWispConnectionNodes){node.NotifyNearbyNodeLoad(loadedNode);}
-            for(WispNode loadedNode : loadedChunk.registeredWispConnectionNodes){node.NotifyNearbyNodeLoad(loadedNode);}
-
-            for(WispNode loadedWisp : loadedChunk.unclaimedWispsInChunk){node.NotifyNearbyNodeLoad(loadedWisp);}
-            for(WispNode loadedWisp : loadedChunk.unregisteredWispsInChunk){node.NotifyNearbyNodeLoad(loadedWisp);}
-            for(WispNode loadedWisp : loadedChunk.registeredWispsInChunk){node.NotifyNearbyNodeLoad(loadedWisp);}
-        };
-        chunkToNotify.unclaimedWispConnectionNodes.forEach(notifier);
-        chunkToNotify.unregisteredWispConnectionNodes.forEach(notifier);
-        chunkToNotify.registeredWispConnectionNodes.forEach(notifier);
-
-        chunkToNotify.unclaimedWispsInChunk.forEach(notifier);
-        chunkToNotify.unregisteredWispsInChunk.forEach(notifier);
-        chunkToNotify.registeredWispsInChunk.forEach(notifier);
-
-        Consumer<? super WispNode> loadFinishedNotifier = (node)->
-        {
-            node.NotifyNearbyChunkFinishedLoad(loadedChunkPos);
-            node.NotifyNearbyChunkFinishedLoad(loadedChunkPos);
-            node.NotifyNearbyChunkFinishedLoad(loadedChunkPos);
-
-            node.NotifyNearbyChunkFinishedLoad(loadedChunkPos);
-            node.NotifyNearbyChunkFinishedLoad(loadedChunkPos);
-            node.NotifyNearbyChunkFinishedLoad(loadedChunkPos);
-        };
-
-        chunkToNotify.unclaimedWispConnectionNodes.forEach(loadFinishedNotifier);
-        chunkToNotify.unregisteredWispConnectionNodes.forEach(loadFinishedNotifier);
-        chunkToNotify.registeredWispConnectionNodes.forEach(loadFinishedNotifier);
-
-        chunkToNotify.unclaimedWispsInChunk.forEach(loadFinishedNotifier);
-        chunkToNotify.unregisteredWispsInChunk.forEach(loadFinishedNotifier);
-        chunkToNotify.registeredWispsInChunk.forEach(loadFinishedNotifier);
-    }
-
     public void OnChunkLoad(ChunkDataEvent.Load loadEvent)
     {
         if(!loadEvent.getData().contains(LogisticsWoW.MOD_ID))
@@ -172,20 +131,5 @@ public class LevelWispData extends SavedData
         newChunkWisps.load(((Level)loadEvent.getWorld()).dimension().location(), chunkLoad);
 
         chunkData.put(loadEvent.getChunk().getPos(), newChunkWisps);
-
-        NotifyChunkOfNeighbourChunkLoad(newChunkWisps, loadEvent.getChunk().getPos(), newChunkWisps);
-        for(int x = -1; x <= 1; ++x)
-        for(int z = -1; z <= 1; ++z)
-        {
-            if(x == 0 && z == 0) continue;
-
-            ChunkPos neighbourChunkPos = new ChunkPos(x, z);
-            ChunkWisps neighbourWisps = chunkData.get(neighbourChunkPos);
-            if(neighbourWisps != null)
-            {
-                NotifyChunkOfNeighbourChunkLoad(neighbourWisps, loadEvent.getChunk().getPos(), newChunkWisps);
-                NotifyChunkOfNeighbourChunkLoad(newChunkWisps, neighbourChunkPos, neighbourWisps);
-            }
-        }
     }
 }

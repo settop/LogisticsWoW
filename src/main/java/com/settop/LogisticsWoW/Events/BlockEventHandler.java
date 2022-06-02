@@ -9,6 +9,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.world.BlockEvent;
@@ -44,10 +45,11 @@ public class BlockEventHandler
                     if(x == 0 && y == 0 && z == 0) continue;
                     //check for a wisp core tile entity
                     BlockPos blockPos = blockPlaced.getPos().offset(x, y, z);
-                    WispCoreBlockEntity tileEntity = (WispCoreBlockEntity)blockPlaced.getWorld().getBlockEntity(blockPos);
-                    if(tileEntity != null)
+                    BlockEntity tileEntity = blockPlaced.getWorld().getBlockEntity(blockPos);
+                    if(tileEntity != null && tileEntity instanceof WispCoreBlockEntity)
                     {
-                        tileEntity.CheckMultiBlockForm();
+                        WispCoreBlockEntity coreTileEntity = (WispCoreBlockEntity)blockPlaced.getWorld().getBlockEntity(blockPos);
+                        coreTileEntity.CheckMultiBlockForm();
                         return;
                     }
                 }
