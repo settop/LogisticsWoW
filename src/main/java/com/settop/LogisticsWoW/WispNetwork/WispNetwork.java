@@ -303,6 +303,42 @@ public class WispNetwork
 
         return hasConnected;
     }
+
+    private void EnsureConnectionToAllNodesInRange(Level level, WispNode nodeToConnect)
+    {
+        final Vec3i maxAutoConnectRangeVec = new Vec3i(WispNode.MaxAutoConnectRange, 0, WispNode.MaxAutoConnectRange);
+        //see if we can get a connection via any nearby nodes
+        ChunkPos chunkMinPos = Utils.GetChunkPos(nodeToConnect.GetPos().subtract( maxAutoConnectRangeVec));
+        ChunkPos chunkMaxPos = Utils.GetChunkPos(nodeToConnect.GetPos().offset( maxAutoConnectRangeVec));
+
+        DimensionData dimData = GetDimensionData(level);
+        if(dimData == null)
+        {
+            throw new RuntimeException("EnsureConnectionToAllNodesInRange dimData is null unexpectedly");
+        }
+
+        for(int x = chunkMinPos.x; x <= chunkMaxPos.x; ++x)
+        for(int z = chunkMinPos.z; z <= chunkMaxPos.z; ++z)
+        {
+            ChunkData nearbyChunk = dimData.GetChunkData(x, z);
+            if(nearbyChunk != null)
+            {
+                for(WispNode registeredNode : nearbyChunk.nodes)
+                {
+                    if(registeredNode == nodeToConnect)
+                    {
+                        continue;
+                    }
+                    int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), nodeToConnect.GetAutoConnectRange());
+                    if(nodeToConnect.CanConnectToPos(level, Vec3.atCenterOf(registeredNode.GetPos()), autoConnectRangeToCheck))
+                    {
+                        nodeToConnect.EnsureConnection(registeredNode, WispNode.eConnectionType.AutoConnect);
+                    }
+                }
+            }
+        }
+    }
+
     public boolean TryAndConnectNodeToNetworkViaNode(Level level, WispNode nodeToConnect, WispNode connectedNode)
     {
         if(nodeToConnect.connectedNetwork != null)
@@ -318,6 +354,7 @@ public class WispNetwork
         if(connectedNode.CanConnectToPos(level, Vec3.atCenterOf(nodeToConnect.GetPos()), autoConnectRangeToCheck))
         {
             nodeToConnect.AddConnectionAndNetworkConnection(connectedNode, WispNode.eConnectionType.AutoConnect);
+            EnsureConnectionToAllNodesInRange(level, nodeToConnect);
             AddNode(level, nodeToConnect);
             return true;
         }
