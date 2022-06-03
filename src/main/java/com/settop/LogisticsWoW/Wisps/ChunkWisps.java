@@ -12,6 +12,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 
 public class ChunkWisps
 {
@@ -21,6 +22,27 @@ public class ChunkWisps
 
     public ArrayList<WispBase> unregisteredWispsInChunk = new ArrayList<>();
     public ArrayList<WispNode> unregisteredWispConnectionNodes = new ArrayList<>();
+
+    public void ClearUnclaimed()
+    {
+        for(Iterator<WispNode> it = unregisteredWispConnectionNodes.iterator(); it.hasNext(); )
+        {
+            WispNode node = it.next();
+            if(!node.claimed)
+            {
+                for(WispNode.Connection connection : node.connectedNodes)
+                {
+                    WispNode otherNode = connection.node.get();
+                    if(otherNode != null)
+                    {
+                        otherNode.connectedNodes.removeIf(otherConnection -> otherConnection.nodePos.equals(node.GetPos()));
+                    }
+                }
+                node.connectedNodes.clear();
+                it.remove();
+            }
+        }
+    }
 
     public CompoundTag save()
     {

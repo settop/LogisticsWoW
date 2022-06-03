@@ -3,8 +3,6 @@ package com.settop.LogisticsWoW.WispNetwork;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix4f;
-import com.settop.LogisticsWoW.LogisticsWoW;
-import com.settop.LogisticsWoW.Wisps.ChunkWisps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
@@ -24,7 +22,6 @@ import net.minecraftforge.client.event.RenderLevelLastEvent;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.Array;
 import java.util.*;
 
 public class WispNetwork
@@ -56,9 +53,8 @@ public class WispNetwork
         public HashMap<ChunkPos, ChunkData> chunkData = new HashMap<>();
 
         @Nullable
-        public ChunkData GetChunkData(BlockPos blockPos)
+        public ChunkData GetChunkData(ChunkPos chunkPos)
         {
-            ChunkPos chunkPos = Utils.GetChunkPos(blockPos);
             return chunkData.get(chunkPos);
         }
         @Nullable
@@ -68,18 +64,19 @@ public class WispNetwork
             return chunkData.get(chunkPos);
         }
         @Nonnull
-        public ChunkData EnsureChunkData(BlockPos blockPos)
+        public ChunkData EnsureChunkData(ChunkPos chunkPos)
         {
-            ChunkPos chunkPos = Utils.GetChunkPos(blockPos);
             return chunkData.computeIfAbsent(chunkPos, (key)->new ChunkData());
         }
     }
 
     public final ResourceLocation dim;
     public final BlockPos pos;
+    public boolean claimed = false;
 
     private final HashMap<ResourceLocation, DimensionData> dimensionData = new HashMap<>();
 
+    private static ResourceLocation GetDim(Level level) { return level.dimension().location(); }
 
     private static void SetupNodeConnection(WispNode nodeA, WispNode nodeB, WispNode.eConnectionType type)
     {
@@ -97,15 +94,15 @@ public class WispNetwork
     public BlockPos GetPos() { return pos; }
 
     @Nullable
-    private DimensionData GetDimensionData(Level world)
+    private DimensionData GetDimensionData(ResourceLocation dim)
     {
-        return dimensionData.get(world.dimension().location());
+        return dimensionData.get(dim);
     }
 
     @Nullable
-    private ChunkData GetChunkData(ResourceLocation dimKey, BlockPos pos)
+    private ChunkData GetChunkData(ResourceLocation dim, ChunkPos pos)
     {
-        DimensionData dimData = dimensionData.get(dimKey);
+        DimensionData dimData = dimensionData.get(dim);
         if(dimData != null)
         {
             return dimData.GetChunkData(pos);
@@ -113,14 +110,9 @@ public class WispNetwork
         return null;
     }
     @Nullable
-    private ChunkData GetChunkData(Level world, BlockPos pos)
+    private ChunkData GetChunkData(ResourceLocation dim, int chunkX, int chunkZ)
     {
-        return GetChunkData(world.dimension().location(), pos);
-    }
-    @Nullable
-    private ChunkData GetChunkData(Level world, int chunkX, int chunkZ)
-    {
-        DimensionData dimData = dimensionData.get(world.dimension().location());
+        DimensionData dimData = dimensionData.get(dim);
         if(dimData != null)
         {
             return dimData.GetChunkData(chunkX, chunkZ);
@@ -129,15 +121,40 @@ public class WispNetwork
     }
 
     @Nonnull
-    private ChunkData EnsureChunkData(Level world, BlockPos pos)
+    private ChunkData EnsureChunkData(ResourceLocation dim, ChunkPos pos)
     {
-        DimensionData dimData = dimensionData.computeIfAbsent(world.dimension().location(), (key)->new DimensionData());
+        DimensionData dimData = dimensionData.computeIfAbsent(dim, (key)->new DimensionData());
         return dimData.EnsureChunkData(pos);
+    }
+
+    public boolean HasChunkData(ResourceLocation dim, ChunkPos chunkPos)
+    {
+        DimensionData dimData = dimensionData.get(dim);
+        return dimData != null && dimData.chunkData.containsKey(chunkPos);
+    }
+
+    public HashMap<ResourceLocation,ArrayList<WispNode>> RemoveFromWorld()
+    {
+        HashMap<ResourceLocation,ArrayList<WispNode>> orphanedNodes = new HashMap<>();
+        dimensionData.forEach((dim, dimData)->
+        {
+            ArrayList<WispNode> dimOrphans = new ArrayList<>();
+            dimData.chunkData.forEach((chunkPos, chunkData)->
+            {
+                for(WispNode node : chunkData.nodes)
+                {
+                    dimOrphans.add(node);
+                    CleanupNodeInternal(node);
+                }
+            });
+            orphanedNodes.put(dim, dimOrphans);
+        });
+        return orphanedNodes;
     }
 
     public WispBase GetWisp(Level world, BlockPos inPos)
     {
-        ChunkData chunkData = GetChunkData(world, inPos);
+        ChunkData chunkData = GetChunkData(GetDim(world), Utils.GetChunkPos(inPos));
         if(chunkData != null)
         {
             for (WispBase wisp : chunkData.wisps)
@@ -153,7 +170,7 @@ public class WispNetwork
 
     public WispNode TryClaimExistingNode(Level world, BlockPos inPos)
     {
-        ChunkData chunkData = GetChunkData(world, inPos);
+        ChunkData chunkData = GetChunkData(GetDim(world), Utils.GetChunkPos(inPos));
         if(chunkData == null)
         {
             return null;
@@ -177,7 +194,7 @@ public class WispNetwork
 
     public WispNode GetNode(ResourceLocation dimKey, BlockPos inPos)
     {
-        ChunkData chunkData = GetChunkData(dimKey, inPos);
+        ChunkData chunkData = GetChunkData(dimKey, Utils.GetChunkPos(inPos));
         if(chunkData != null)
         {
             for (WispNode node : chunkData.nodes)
@@ -191,10 +208,7 @@ public class WispNetwork
         return null;
     }
 
-    public WispNode GetNode(Level world, BlockPos inPos)
-    {
-        return GetNode(world.dimension().location(), inPos);
-    }
+    public WispNode GetNode(Level world, BlockPos inPos){ return GetNode(GetDim(world), inPos); }
 
     public boolean TryConnectWisp(Level world, WispBase wisp)
     {
@@ -212,7 +226,7 @@ public class WispNetwork
         {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; ++chunkZ)
             {
-                ChunkData chunkData = GetChunkData(world, chunkX, chunkZ);
+                ChunkData chunkData = GetChunkData(GetDim(world), chunkX, chunkZ);
                 if(chunkData == null)
                 {
                     continue;
@@ -229,13 +243,54 @@ public class WispNetwork
 
         if(!wisp.connectedNodes.isEmpty())
         {
-            EnsureChunkData(world, wisp.GetPos()).wisps.add(wisp);
+            EnsureChunkData(GetDim(world), Utils.GetChunkPos(wisp.GetPos())).wisps.add(wisp);
             return true;
         }
         else
         {
             return false;
         }
+    }
+
+    public HashMap<ResourceLocation,ArrayList<WispNode>> ClearUnclaimed(ResourceLocation dim, ChunkPos chunk)
+    {
+        ChunkData chunkData = GetChunkData(dim, chunk);
+        if(chunkData == null)
+        {
+            return null;
+        }
+
+        ArrayList<WispNode> unclaimedNodes = new ArrayList<>();
+        for(WispNode node : chunkData.nodes)
+        {
+            if(!node.claimed)
+            {
+                unclaimedNodes.add(node);
+            }
+        }
+
+        if(unclaimedNodes.isEmpty())
+        {
+            return null;
+        }
+        HashMap<ResourceLocation,ArrayList<WispNode>> orphanedNodes  = new HashMap<>();
+
+        for(WispNode unclaimedNode : unclaimedNodes)
+        {
+            HashMap<ResourceLocation,ArrayList<WispNode>> newOrphanedNodes = RemoveNode(dim, unclaimedNode);
+            newOrphanedNodes.forEach
+                    (
+                            (orphanedDim, dimOrphans)->orphanedNodes.computeIfAbsent(orphanedDim, key2->new ArrayList<>()).addAll(dimOrphans)
+                    );
+        }
+
+        //make sure we aren't returning any of the unclaimed nodes we are trying to return
+        for(WispNode unclaimedNode : unclaimedNodes)
+        {
+            orphanedNodes.forEach((key, dimOrphans)-> dimOrphans.remove(unclaimedNode));
+        }
+
+        return orphanedNodes;
     }
 
     public boolean TryAndConnectNodeToNetwork(Level level, WispNode node)
@@ -248,12 +303,12 @@ public class WispNetwork
             if (node.CanConnectToPos(level, testPos, node.autoConnectRange))
             {
                 //node is connected directly to the network
-                AddNode(level, node);
+                AddNode(GetDim(level), node);
                 hasConnected = true;
             }
         }
 
-        DimensionData dimData = GetDimensionData(level);
+        DimensionData dimData = GetDimensionData(GetDim(level));
         if(dimData == null)
         {
             return hasConnected;
@@ -298,7 +353,7 @@ public class WispNetwork
 
         if(needsAdding)
         {
-            AddNode(level, node);
+            AddNode(GetDim(level), node);
         }
 
         return hasConnected;
@@ -311,7 +366,7 @@ public class WispNetwork
         ChunkPos chunkMinPos = Utils.GetChunkPos(nodeToConnect.GetPos().subtract( maxAutoConnectRangeVec));
         ChunkPos chunkMaxPos = Utils.GetChunkPos(nodeToConnect.GetPos().offset( maxAutoConnectRangeVec));
 
-        DimensionData dimData = GetDimensionData(level);
+        DimensionData dimData = GetDimensionData(GetDim(level));
         if(dimData == null)
         {
             throw new RuntimeException("EnsureConnectionToAllNodesInRange dimData is null unexpectedly");
@@ -355,7 +410,7 @@ public class WispNetwork
         {
             nodeToConnect.AddConnectionAndNetworkConnection(connectedNode, WispNode.eConnectionType.AutoConnect);
             EnsureConnectionToAllNodesInRange(level, nodeToConnect);
-            AddNode(level, nodeToConnect);
+            AddNode(GetDim(level), nodeToConnect);
             return true;
         }
         else
@@ -364,16 +419,16 @@ public class WispNetwork
         }
     }
 
-    public void RemoveWisp(Level world, WispBase wisp)
+    public void RemoveWisp(ResourceLocation dim, WispBase wisp)
     {
-        EnsureChunkData(world, wisp.GetPos()).wisps.remove(wisp);
+        EnsureChunkData(dim, Utils.GetChunkPos(wisp.GetPos())).wisps.remove(wisp);
         //ToDo
     }
 
-    public void AddNode(Level world, WispNode node)
+    private void AddNode(ResourceLocation dim, WispNode node)
     {
         node.ConnectToWispNetwork(this);
-        EnsureChunkData(world, node.GetPos()).nodes.add(node);
+        EnsureChunkData(dim, Utils.GetChunkPos(node.GetPos())).nodes.add(node);
     }
 
 
@@ -388,7 +443,7 @@ public class WispNetwork
         {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; ++chunkZ)
             {
-                ChunkData chunkData = GetChunkData(world, chunkX, chunkZ);
+                ChunkData chunkData = GetChunkData(GetDim(world), chunkX, chunkZ);
                 if(chunkData == null)
                 {
                     continue;
@@ -426,9 +481,8 @@ public class WispNetwork
         }
     }
 
-    private void RemoveNodeInternal(Level world, WispNode node)
+    private void CleanupNodeInternal(WispNode node)
     {
-        EnsureChunkData(world, node.GetPos()).nodes.remove(node);
         node.DisconnectFromWispNetwork(this);
 
         //now ensure that all the auto connections are removed
@@ -446,8 +500,14 @@ public class WispNetwork
         }
     }
 
+    private void RemoveNodeInternal(ResourceLocation dim, WispNode node)
+    {
+        EnsureChunkData(dim, Utils.GetChunkPos(node.GetPos())).nodes.remove(node);
+        CleanupNodeInternal(node);
+    }
+
     //Returns any nodes that are no longer connected to the network
-    public ArrayList<WispNode> RemoveNode(Level world, WispNode node)
+    public HashMap<ResourceLocation,ArrayList<WispNode>> RemoveNode(ResourceLocation dim, WispNode node)
     {
         //now need to remove it's connections
         ArrayList<WispNode> orphanedNodes = new ArrayList<>();
@@ -471,7 +531,7 @@ public class WispNetwork
             }
         }
         node.connectedNodes.clear();
-        RemoveNodeInternal(world, node);
+        RemoveNodeInternal(dim, node);
 
         boolean updated = true;
         while(updated)
@@ -516,10 +576,12 @@ public class WispNetwork
         }
         for(WispNode orphanedNode : orphanedNodes)
         {
-            RemoveNodeInternal(world, orphanedNode);
+            RemoveNodeInternal(dim, orphanedNode);
         }
 
-        return orphanedNodes;
+        HashMap<ResourceLocation,ArrayList<WispNode>> orphanedNodesMap = new HashMap<>();
+        orphanedNodesMap.put(dim, orphanedNodes);
+        return orphanedNodesMap;
     }
 
     public Vec3 GetClosestPos(Vec3 inPos)
@@ -571,13 +633,13 @@ public class WispNetwork
                 WispBase loadedWisp = WispFactory.LoadWisp(dimensionName, wispNBT);
 
                 BlockPos wispPos = loadedWisp.GetPos();
-                dimData.EnsureChunkData(wispPos).wisps.add(loadedWisp);
+                dimData.EnsureChunkData(Utils.GetChunkPos(wispPos)).wisps.add(loadedWisp);
             }
             ListTag networkNodes = dimDataNBT.getList("nodes", nbt.getId());
             for(int i = 0; i < networkNodes.size(); ++i)
             {
                 WispNode loadedNode = WispNode.ReadNode(networkNodes.getCompound(i));
-                dimData.EnsureChunkData(loadedNode.GetPos()).nodes.add(loadedNode);
+                dimData.EnsureChunkData(Utils.GetChunkPos(loadedNode.GetPos())).nodes.add(loadedNode);
             }
 
             dimensionData.put(dimensionName, dimData);

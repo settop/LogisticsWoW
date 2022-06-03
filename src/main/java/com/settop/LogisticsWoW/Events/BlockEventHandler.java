@@ -24,20 +24,6 @@ public class BlockEventHandler
     @SubscribeEvent
     public static void OnWispCoreRingBlockPlace(BlockEvent.EntityPlaceEvent blockPlaced)
     {
-        boolean blockCanFormMultiBlock = false;
-        for(TagKey<Block> requiredTag : WispCoreBlockEntity.RING_BLOCK_TAGS)
-        {
-            if (blockPlaced.getPlacedBlock().getTags().anyMatch((tag)->tag == requiredTag))
-            {
-                blockCanFormMultiBlock = true;
-                break;
-            }
-        }
-        if(!blockCanFormMultiBlock)
-        {
-            return;
-        }
-
         for(int x = -1; x <=1; ++x)
             for(int y = -1; y <=1; ++y)
                 for(int z = -1; z <=1; ++z)
@@ -48,7 +34,7 @@ public class BlockEventHandler
                     BlockEntity tileEntity = blockPlaced.getWorld().getBlockEntity(blockPos);
                     if(tileEntity != null && tileEntity instanceof WispCoreBlockEntity)
                     {
-                        WispCoreBlockEntity coreTileEntity = (WispCoreBlockEntity)blockPlaced.getWorld().getBlockEntity(blockPos);
+                        WispCoreBlockEntity coreTileEntity = (WispCoreBlockEntity)tileEntity;
                         coreTileEntity.CheckMultiBlockForm();
                         return;
                     }

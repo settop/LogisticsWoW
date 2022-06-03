@@ -75,7 +75,7 @@ public class WispCoreBlockEntity extends BlockEntity
             },
             {
                     { -1,  0, -1 },
-                    {  0,  1,  0 },
+                    {  0,  2,  0 },
                     { -1,  0, -1 }
             }
     };
@@ -168,7 +168,8 @@ public class WispCoreBlockEntity extends BlockEntity
 
         if(!level.isClientSide)
         {
-            network = GlobalWispData.GetOrCreateWispNetwork(level, getBlockPos());
+            network = GlobalWispData.CreateOrClaimWispNetwork(level, getBlockPos());
+            GlobalWispData.TryAndConnectNetworkToNodes(level, network);
         }
         setChanged();
     }
@@ -295,7 +296,7 @@ public class WispCoreBlockEntity extends BlockEntity
         if(!level.isClientSide && needToLoadNetwork)
         {
             needToLoadNetwork = false;
-            network = GlobalWispData.GetOrCreateWispNetwork(level, getBlockPos());
+            network = GlobalWispData.CreateOrClaimWispNetwork(level, getBlockPos());
         }
     }
 

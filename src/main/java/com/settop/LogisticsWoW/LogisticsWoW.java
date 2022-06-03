@@ -77,9 +77,10 @@ public class LogisticsWoW
 
     private void setup(final FMLCommonSetupEvent event)
     {
-        WispCoreBlockEntity.RING_BLOCK_TAGS = new ArrayList<TagKey<Block>>();
+        WispCoreBlockEntity.RING_BLOCK_TAGS = new ArrayList<>();
         WispCoreBlockEntity.RING_BLOCK_TAGS.add(Tags.Blocks.STORAGE_BLOCKS_GOLD);
         WispCoreBlockEntity.RING_BLOCK_TAGS.add(Tags.Blocks.STORAGE_BLOCKS_QUARTZ);
+        WispCoreBlockEntity.RING_BLOCK_TAGS.add(Tags.Blocks.STORAGE_BLOCKS_AMETHYST);
 
         MULTI_SCREEN_CHANNEL.registerMessage(1, CContainerTabSelected.class,
                 CContainerTabSelected::encode, CContainerTabSelected::decode,

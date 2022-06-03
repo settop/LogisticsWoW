@@ -46,6 +46,10 @@ public class LevelWispData extends SavedData
     {
         return chunkData.get(chunkPos);
     }
+    public boolean HasChunkData(ChunkPos chunkPos)
+    {
+        return chunkData.containsKey(chunkPos);
+    }
 
     public void load(CompoundTag nbt)
     {

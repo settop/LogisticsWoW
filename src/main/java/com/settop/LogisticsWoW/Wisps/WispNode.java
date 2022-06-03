@@ -71,7 +71,7 @@ public class WispNode
     {
         if(range > MaxAutoConnectRange)
         {
-            throw new RuntimeException(String.format("Setting auto connect range to {}. Max is {}", range, MaxAutoConnectRange));
+            throw new RuntimeException(String.format("Setting auto connect range to %n. Max is %n", range, MaxAutoConnectRange));
         }
         autoConnectRange = range;
     }
