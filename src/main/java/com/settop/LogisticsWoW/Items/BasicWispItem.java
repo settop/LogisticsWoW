@@ -2,6 +2,7 @@ package com.settop.LogisticsWoW.Items;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Tuple;
 import net.minecraft.world.InteractionResult;
@@ -20,6 +21,7 @@ import com.settop.LogisticsWoW.Wisps.GlobalWispData;
 import com.settop.LogisticsWoW.Wisps.WispBase;
 import com.settop.LogisticsWoW.Wisps.WispConstants;
 import net.minecraftforge.network.NetworkHooks;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -36,17 +38,17 @@ public class BasicWispItem extends Item
 
     // adds 'tooltip' text
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level worldIn, List<Component> tooltip, TooltipFlag flagIn)
+    public void appendHoverText(@NotNull ItemStack stack, @Nullable Level worldIn, List<Component> tooltip, @NotNull TooltipFlag flagIn)
     {
-        tooltip.add(new TextComponent("Sneak right click on a block to insert wisp"));
-        tooltip.add(new TextComponent("Can be enchanted"));
+        tooltip.add(new TranslatableComponent("logwow.tooltip.insert_hint"));
+        tooltip.add(new TranslatableComponent("logwow.tooltip.enchant_hint"));
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext context)
+    public @NotNull InteractionResult useOn(UseOnContext context)
     {
         Level world = context.getLevel();
-        if(!context.getPlayer().isCrouching())
+        if(context.getPlayer() == null || !context.getPlayer().isCrouching())
         {
             return InteractionResult.PASS;
         }
@@ -63,8 +65,8 @@ public class BasicWispItem extends Item
             {
                 ItemStack wispItemStack = context.getItemInHand();
                 //server side only work
-                Tuple<WispBase, Boolean> blocksWisp = GlobalWispData.CreateOrClaimWisp(WispConstants.BASIC_WISP, world, context.getClickedPos(), wispItemStack.getTag());
-                if(blocksWisp.getB())
+                Tuple<WispBase, Boolean> blocksWisp = GlobalWispData.CreateOrGetWisp(WispConstants.BASIC_WISP, world, context.getClickedPos(), wispItemStack.getTag());
+                if(blocksWisp.getB() && !context.getPlayer().isCreative())
                 {
                     //we just added it, so remove one from the stack
                     wispItemStack.shrink(1);

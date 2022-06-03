@@ -2,7 +2,6 @@ package com.settop.LogisticsWoW.Wisps;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Matrix4f;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Utils;
 import net.minecraft.client.Minecraft;
@@ -18,6 +17,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.ChunkStatus;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -75,24 +75,10 @@ public class GlobalWispData
     //Returns null if wisp does not exist at this position
     public static synchronized WispBase GetWisp(Level inWorld, BlockPos inPos)
     {
-        if(inWorld.isClientSide())
+        WispNode node = GetNode(inWorld, inPos);
+        if(node instanceof WispBase)
         {
-            throw new RuntimeException("Trying to get chunk data on client");
-        }
-        LevelWispData dimData = GetWorldData(inWorld);
-        if(dimData != null)
-        {
-            ChunkWisps chunkWisps = dimData.GetChunkWisps(inPos);
-            if(chunkWisps != null)
-            {
-                for(WispBase unregisteredWisp : chunkWisps.unregisteredWispsInChunk)
-                {
-                    if(unregisteredWisp.GetPos().equals(inPos))
-                    {
-                        return unregisteredWisp;
-                    }
-                }
-            }
+            return (WispBase)node;
         }
 
         return null;
@@ -100,41 +86,17 @@ public class GlobalWispData
 
     private static synchronized WispBase TryClaimWisp(Level inWorld, BlockPos inPos)
     {
-        if(inWorld.isClientSide())
+        WispNode node = TryClaimExistingNode(inWorld, inPos);
+        if(node == null)
         {
-            throw new RuntimeException("Trying to get chunk data on client");
+            return null;
         }
-        LevelWispData dimData = GetWorldData(inWorld);
-        if(dimData != null)
+        if(!(node instanceof WispBase))
         {
-            ChunkWisps chunkWisps = dimData.GetChunkWisps(inPos);
-            if(chunkWisps != null)
-            {
-                for (WispBase existingWisp : chunkWisps.unregisteredWispsInChunk)
-                {
-                    if (existingWisp.GetPos().equals(inPos))
-                    {
-                        if(existingWisp.claimed)
-                        {
-                            throw new RuntimeException("Trying to claim an already claimed wisp");
-                        }
-                        existingWisp.claimed = true;
-                        return existingWisp;
-                    }
-                }
-
-            }
+            throw new RuntimeException("Claiming a wisp claimed a node instead");
         }
 
-        for(LevelWispData levelData : worldData.values())
-        {
-            for(WispNetwork network : levelData.wispNetworks)
-            {
-                //network.TryClaimExistingWisp(inWorld, inPos);
-                throw new RuntimeException("NYI");
-            }
-        }
-        return null;
+        return (WispBase)node;
     }
 
     /**
@@ -143,25 +105,31 @@ public class GlobalWispData
      *
      * Return's the wisp and a boolean indicating if the wisp is a newly created one
      **/
-    public static synchronized Tuple<WispBase, Boolean> CreateOrClaimWisp(String type, Level inWorld, BlockPos inPos, CompoundTag tagData)
+    public static synchronized Tuple<WispBase, Boolean> CreateOrGetWisp(String type, Level inWorld, BlockPos inPos, CompoundTag tagData)
     {
         if(inWorld.isClientSide())
         {
             throw new RuntimeException("Trying to get chunk data on client");
         }
 
-        WispBase existingWisp = TryClaimWisp(inWorld, inPos);
+        WispBase existingWisp = GetWisp(inWorld, inPos);
         if(existingWisp != null)
         {
+            if(!existingWisp.GetType().equals(type))
+            {
+                LogisticsWoW.LOGGER.error("Getting a wisp, but it is of the wrong type. Existing type: %s Expected type: %s", existingWisp.GetType(), type);
+            }
             return new Tuple<> (existingWisp, false);
         }
 
         WispBase newWisp = WispFactory.CreateNewWisp(type, inWorld.dimension().location(), inPos);
         newWisp.InitFromTagData(tagData);
+        newWisp.claimed = true;
 
         LevelWispData dimData = EnsureWorldData(inWorld);
         ChunkWisps chunkWisps = dimData.EnsureChunkWisps(inPos);
-        chunkWisps.unregisteredWispsInChunk.add(newWisp);
+        chunkWisps.unregisteredNodes.add(newWisp);
+        TryAndConnectNodeToANetwork(inWorld, newWisp, 0);
 
         return new Tuple<>(newWisp, true);
     }
@@ -241,7 +209,7 @@ public class GlobalWispData
                 ChunkPos chunkToCheck = new ChunkPos(x, z);
                 ChunkWisps nearbyChunk = dimData.GetChunkWisps(chunkToCheck);
                 if(nearbyChunk == null) continue;
-                for (Iterator<WispNode> it = nearbyChunk.unregisteredWispConnectionNodes.iterator(); it.hasNext();)
+                for (Iterator<WispNode> it = nearbyChunk.unregisteredNodes.iterator(); it.hasNext();)
                 {
                     WispNode unregisteredNode = it.next();
                     TryResolveExistingConnections(level, unregisteredNode);
@@ -269,7 +237,7 @@ public class GlobalWispData
                 ChunkPos chunkToCheck = new ChunkPos(x, z);
                 ChunkWisps nearbyChunk = dimData.GetChunkWisps(chunkToCheck);
                 if(nearbyChunk == null) continue;
-                for (Iterator<WispNode> it = nearbyChunk.unregisteredWispConnectionNodes.iterator(); it.hasNext();)
+                for (Iterator<WispNode> it = nearbyChunk.unregisteredNodes.iterator(); it.hasNext();)
                 {
                     WispNode unregisteredNode = it.next();
                     TryResolveExistingConnections(level, unregisteredNode);
@@ -296,7 +264,7 @@ public class GlobalWispData
             ChunkWisps chunkWisps = dimData.GetChunkWisps(pos);
             if(chunkWisps != null)
             {
-                for (WispNode existingNode : chunkWisps.unregisteredWispConnectionNodes)
+                for (WispNode existingNode : chunkWisps.unregisteredNodes)
                 {
                     if (existingNode.GetPos().equals(pos))
                     {
@@ -337,6 +305,10 @@ public class GlobalWispData
         WispNode existingNode = TryClaimExistingNode(inWorld, pos);
         if(existingNode != null)
         {
+            if(existingNode instanceof WispBase)
+            {
+                throw new RuntimeException("Claiming a wisp node claimed a wisp instead");
+            }
             return existingNode;
         }
 
@@ -345,7 +317,7 @@ public class GlobalWispData
 
         LevelWispData dimData = EnsureWorldData(inWorld);
         ChunkWisps chunkData = dimData.EnsureChunkWisps(pos);
-        chunkData.unregisteredWispConnectionNodes.add(newNode);
+        chunkData.unregisteredNodes.add(newNode);
 
         return newNode;
     }
@@ -363,7 +335,7 @@ public class GlobalWispData
             ChunkWisps chunkWisps = dimData.GetChunkWisps(pos);
             if(chunkWisps != null)
             {
-                for(WispNode unregisteredNode : chunkWisps.unregisteredWispConnectionNodes)
+                for(WispNode unregisteredNode : chunkWisps.unregisteredNodes)
                 {
                     if(unregisteredNode.GetPos().equals(pos))
                     {
@@ -399,7 +371,7 @@ public class GlobalWispData
             for(WispNode orphanedNode : dimOrphanedNodes.getValue())
             {
                 ChunkWisps otherChunkData = dimData.EnsureChunkWisps(orphanedNode.GetPos());
-                otherChunkData.unregisteredWispConnectionNodes.add(orphanedNode);
+                otherChunkData.unregisteredNodes.add(orphanedNode);
             }
         }
     }
@@ -410,7 +382,7 @@ public class GlobalWispData
         ChunkWisps chunkData = dimData.EnsureChunkWisps(node.GetPos());
 
         node.RemoveFromWorld(inWorld);
-        if(chunkData.unregisteredWispConnectionNodes.remove(node))
+        if(chunkData.unregisteredNodes.remove(node))
         {
             return;
         }
@@ -440,7 +412,7 @@ public class GlobalWispData
                 if(chunkWisps != null)
                 {
                     boolean foundNode = false;
-                    for(WispNode unregisteredNode : chunkWisps.unregisteredWispConnectionNodes)
+                    for(WispNode unregisteredNode : chunkWisps.unregisteredNodes)
                     {
                         if(unregisteredNode.GetPos().equals(connection.nodePos))
                         {
@@ -489,7 +461,7 @@ public class GlobalWispData
             {
                 if(network.TryAndConnectNodeToNetwork(level, node))
                 {
-                    if(!chunkWisps.unregisteredWispConnectionNodes.remove(node))
+                    if(!chunkWisps.unregisteredNodes.remove(node))
                     {
                         LogisticsWoW.LOGGER.warn("Connecting a node to a network, but it is not unregistered");
                     }
@@ -524,7 +496,7 @@ public class GlobalWispData
                 ChunkPos chunkToCheck = new ChunkPos(x, z);
                 ChunkWisps nearbyChunk = dimData.GetChunkWisps(chunkToCheck);
                 if(nearbyChunk == null) continue;
-                for (Iterator<WispNode> it = nearbyChunk.unregisteredWispConnectionNodes.iterator(); it.hasNext();)
+                for (Iterator<WispNode> it = nearbyChunk.unregisteredNodes.iterator(); it.hasNext();)
                 {
                     WispNode unregisteredNode = it.next();
                     TryResolveExistingConnections(level, unregisteredNode);
@@ -562,10 +534,19 @@ public class GlobalWispData
             --loadingData.tickCounter;
             if(loadingData.tickCounter <= 0)
             {
+                if(!tickEvent.world.hasChunk(loadingData.chunkPos.x, loadingData.chunkPos.z))
+                {
+                    //chunk has vanished in the few ticks since it loaded
+                    it.remove();
+                    continue;
+                }
+                LevelChunk chunk = tickEvent.world.getChunk(loadingData.chunkPos.x, loadingData.chunkPos.z);
+
                 LevelWispData dimData = worldData.get(loadingData.chunkDim);
                 ChunkWisps chunkWisps = dimData.chunkData.get(loadingData.chunkPos);
                 if(chunkWisps != null)
                 {
+                    chunkWisps.CheckWispsValid(chunk);
                     chunkWisps.ClearUnclaimed();
                 }
 
@@ -584,6 +565,7 @@ public class GlobalWispData
                 {
                     for(WispNetwork wispNetwork : otherDimData.wispNetworks)
                     {
+                        wispNetwork.CheckWispsValid(chunk);
                         HandleOrphanedNodes(wispNetwork.ClearUnclaimed(loadingData.chunkDim, loadingData.chunkPos));
                     }
                 }
@@ -701,7 +683,7 @@ public class GlobalWispData
 
         if(wisp == null) return;
 
-        wisp.RemoveFromWorld((Level)updateEvent.getWorld());
+        RemoveNode((Level)updateEvent.getWorld(), wisp);
         wisp.DropItemStackIntoWorld(updateEvent.getWorld());
     }
 

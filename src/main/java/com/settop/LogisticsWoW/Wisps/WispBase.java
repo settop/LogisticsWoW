@@ -33,6 +33,12 @@ public abstract class WispBase extends WispNode implements MenuProvider
 
     }
 
+    @Override
+    public boolean CanBeUsedAsNetworkConnection()
+    {
+        return false;
+    }
+
     public CompoundTag Save()
     {
         CompoundTag nbt = super.Save();

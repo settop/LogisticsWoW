@@ -10,6 +10,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -23,6 +24,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
 import java.util.*;
+import java.util.stream.Stream;
 
 public class WispNetwork
 {
@@ -44,8 +46,16 @@ public class WispNetwork
 
     public static class ChunkData
     {
-        public final ArrayList<WispBase> wisps = new ArrayList<>();
-        private final ArrayList<WispNode> nodes = new ArrayList<>();
+        public final ArrayList<WispNode> nodes = new ArrayList<>();//includes both nodes and wisps
+
+        public Stream<WispBase> GetWisps()
+        {
+            return nodes.stream().filter(node->node instanceof WispBase).map(node->(WispBase)node);
+        }
+        public Stream<WispNode> GetOnlyNodes()
+        {
+            return nodes.stream().filter(node->!(node instanceof WispBase));
+        }
     }
 
     public static class DimensionData
@@ -152,22 +162,6 @@ public class WispNetwork
         return orphanedNodes;
     }
 
-    public WispBase GetWisp(Level world, BlockPos inPos)
-    {
-        ChunkData chunkData = GetChunkData(GetDim(world), Utils.GetChunkPos(inPos));
-        if(chunkData != null)
-        {
-            for (WispBase wisp : chunkData.wisps)
-            {
-                if (wisp.GetPos().equals(inPos))
-                {
-                    return wisp;
-                }
-            }
-        }
-        return null;
-    }
-
     public WispNode TryClaimExistingNode(Level world, BlockPos inPos)
     {
         ChunkData chunkData = GetChunkData(GetDim(world), Utils.GetChunkPos(inPos));
@@ -210,46 +204,20 @@ public class WispNetwork
 
     public WispNode GetNode(Level world, BlockPos inPos){ return GetNode(GetDim(world), inPos); }
 
-    public boolean TryConnectWisp(Level world, WispBase wisp)
+    public void CheckWispsValid(LevelChunk chunk)
     {
-        if(!wisp.connectedNodes.isEmpty())
+        ChunkData chunkData = GetChunkData(GetDim(Objects.requireNonNull(chunk.getWorldForge())), chunk.getPos());
+        if(chunkData == null)
         {
-            throw new RuntimeException("Trying to connect wisp to wisp network, but it already has connections");
+            return;
         }
-
-        int minChunkX = (wisp.GetPos().getX() - WispNode.MaxAutoConnectRange) >> 4;
-        int maxChunkX = (wisp.GetPos().getX() + WispNode.MaxAutoConnectRange) >> 4;
-        int minChunkZ = (wisp.GetPos().getZ() - WispNode.MaxAutoConnectRange) >> 4;
-        int maxChunkZ = (wisp.GetPos().getZ() + WispNode.MaxAutoConnectRange) >> 4;
-
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
+        chunkData.GetWisps().forEach(wisp->
         {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; ++chunkZ)
+            if(chunk.getBlockEntity(wisp.GetPos()) != null)
             {
-                ChunkData chunkData = GetChunkData(GetDim(world), chunkX, chunkZ);
-                if(chunkData == null)
-                {
-                    continue;
-                }
-                for(WispNode node : chunkData.nodes)
-                {
-                    if(node.CanConnectToPos(world, Vec3.atCenterOf(wisp.GetPos()), node.autoConnectRange))
-                    {
-                        SetupNodeConnection(node, wisp, WispNode.eConnectionType.AutoConnect);
-                    }
-                }
+                wisp.claimed = true;
             }
-        }
-
-        if(!wisp.connectedNodes.isEmpty())
-        {
-            EnsureChunkData(GetDim(world), Utils.GetChunkPos(wisp.GetPos())).wisps.add(wisp);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        });
     }
 
     public HashMap<ResourceLocation,ArrayList<WispNode>> ClearUnclaimed(ResourceLocation dim, ChunkPos chunk)
@@ -320,6 +288,7 @@ public class WispNetwork
         ChunkPos chunkMaxPos = Utils.GetChunkPos(node.GetPos().offset( maxAutoConnectRangeVec));
 
         boolean needsAdding = false;
+        ArrayList<WispNode> nodesToRecheckConnection = new ArrayList<>();
 
         for(int x = chunkMinPos.x; x <= chunkMaxPos.x; ++x)
         for(int z = chunkMinPos.z; z <= chunkMaxPos.z; ++z)
@@ -331,6 +300,11 @@ public class WispNetwork
                 {
                     if(registeredNode == node)
                     {
+                        continue;
+                    }
+                    if(!hasConnected && !registeredNode.CanBeUsedAsNetworkConnection())
+                    {
+                        nodesToRecheckConnection.add(registeredNode);
                         continue;
                     }
                     int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), node.GetAutoConnectRange());
@@ -354,6 +328,18 @@ public class WispNetwork
         if(needsAdding)
         {
             AddNode(GetDim(level), node);
+        }
+
+        if(hasConnected)
+        {
+            for(WispNode registeredNode : nodesToRecheckConnection)
+            {
+                int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), node.GetAutoConnectRange());
+                if(node.CanConnectToPos(level, Vec3.atCenterOf(registeredNode.GetPos()), autoConnectRangeToCheck))
+                {
+                    node.EnsureConnection(registeredNode, WispNode.eConnectionType.AutoConnect);
+                }
+            }
         }
 
         return hasConnected;
@@ -404,6 +390,12 @@ public class WispNetwork
         {
             throw new RuntimeException("Trying to connect via a node that is not connected to this network");
         }
+
+        if(!connectedNode.CanBeUsedAsNetworkConnection())
+        {
+            return false;
+        }
+
         int autoConnectRangeToCheck = Math.max(nodeToConnect.GetAutoConnectRange(), connectedNode.GetAutoConnectRange());
 
         if(connectedNode.CanConnectToPos(level, Vec3.atCenterOf(nodeToConnect.GetPos()), autoConnectRangeToCheck))
@@ -419,51 +411,21 @@ public class WispNetwork
         }
     }
 
-    public void RemoveWisp(ResourceLocation dim, WispBase wisp)
-    {
-        EnsureChunkData(dim, Utils.GetChunkPos(wisp.GetPos())).wisps.remove(wisp);
-        //ToDo
-    }
-
     private void AddNode(ResourceLocation dim, WispNode node)
     {
         node.ConnectToWispNetwork(this);
         EnsureChunkData(dim, Utils.GetChunkPos(node.GetPos())).nodes.add(node);
     }
 
-
-    private void ConnectNewNodeToWisps(Level world, WispNode node)
-    {
-        int minChunkX = (node.GetPos().getX() - node.autoConnectRange) >> 4;
-        int maxChunkX = (node.GetPos().getX() + node.autoConnectRange) >> 4;
-        int minChunkZ = (node.GetPos().getZ() - node.autoConnectRange) >> 4;
-        int maxChunkZ = (node.GetPos().getZ() + node.autoConnectRange) >> 4;
-
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
-        {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; ++chunkZ)
-            {
-                ChunkData chunkData = GetChunkData(GetDim(world), chunkX, chunkZ);
-                if(chunkData == null)
-                {
-                    continue;
-                }
-                for(WispBase wisp : chunkData.wisps)
-                {
-                    if(node.CanConnectToPos(world, Vec3.atCenterOf(wisp.GetPos()), node.autoConnectRange))
-                    {
-                        SetupNodeConnection(node, wisp, WispNode.eConnectionType.AutoConnect);
-                    }
-                }
-            }
-        }
-    }
-
     private static boolean CheckIfValidNetworkConnection(WispNode sourceNode, WispNode testNode)
     {
         for(WispNode n = testNode; ; n = n.networkConnectionNode.node.get())
         {
-            if(n.GetConnectedNetwork() != null && n.networkConnectionNode == null)
+            if(!n.CanBeUsedAsNetworkConnection())
+            {
+                return false;
+            }
+            else if(n.GetConnectedNetwork() != null && n.networkConnectionNode == null)
             {
                 //n is connected directly to the network
                 return true;
@@ -633,7 +595,7 @@ public class WispNetwork
                 WispBase loadedWisp = WispFactory.LoadWisp(dimensionName, wispNBT);
 
                 BlockPos wispPos = loadedWisp.GetPos();
-                dimData.EnsureChunkData(Utils.GetChunkPos(wispPos)).wisps.add(loadedWisp);
+                dimData.EnsureChunkData(Utils.GetChunkPos(wispPos)).nodes.add(loadedWisp);
             }
             ListTag networkNodes = dimDataNBT.getList("nodes", nbt.getId());
             for(int i = 0; i < networkNodes.size(); ++i)
@@ -682,13 +644,16 @@ public class WispNetwork
             ListTag networkNodes = new ListTag();
             for(ChunkData chunkData : dimData.chunkData.values())
             {
-                for(WispBase wisp : chunkData.wisps)
-                {
-                    networkWisps.add(wisp.Save());
-                }
                 for(WispNode node : chunkData.nodes)
                 {
-                    networkNodes.add(WispNode.Write(node, new CompoundTag()));
+                    if(node instanceof WispBase)
+                    {
+                        networkWisps.add(node.Save());
+                    }
+                    else
+                    {
+                        networkNodes.add(node.Save());
+                    }
                 }
             }
 
@@ -719,7 +684,7 @@ public class WispNetwork
                 {
                     for (WispNode.Connection connection : node.connectedNodes)
                     {
-                        float rgb[] = {0.f, 1.f, 0.f};
+                        float[] rgb = {0.f, 1.f, 0.f};
                         if (connection.connectionType == WispNode.eConnectionType.Link)
                         {
                             rgb[0] = 0.f;
@@ -734,7 +699,7 @@ public class WispNetwork
                                 .normal(0.f, 1.f, 0.f)
                                 .endVertex();
 
-                        builder.vertex(matrix, connection.node.get().GetPos().getX(), connection.node.get().GetPos().getY(), connection.node.get().GetPos().getZ())
+                        builder.vertex(matrix, connection.nodePos.getX(), connection.nodePos.getY(), connection.nodePos.getZ())
                                 .color(rgb[0], rgb[1], rgb[2], 0.8f)
                                 //.overlayCoords(OverlayTexture.NO_OVERLAY)
                                 //.lightmap(15728880)

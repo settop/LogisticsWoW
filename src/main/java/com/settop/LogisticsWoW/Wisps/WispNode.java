@@ -95,6 +95,7 @@ public class WispNode
     {
         return connectedNetwork != null;
     }
+    public boolean CanBeUsedAsNetworkConnection() { return true; }
 
     public void ConnectToWispNetwork(WispNetwork wispNetwork)
     {
@@ -114,25 +115,21 @@ public class WispNode
     {
         Vec3 startPos = Vec3.atCenterOf(pos);
         Vec3 offset = target.subtract(startPos);
-        double manhattanDistance = Math.abs(offset.x) + Math.abs(offset.y) + Math.abs(offset.z);
-        if(manhattanDistance > connectionRange + 0.5f)
+        double minecraftDistance = Math.max(Math.abs(offset.x), Math.max(Math.abs(offset.y), Math.abs(offset.z)));
+        if(minecraftDistance > connectionRange + 0.5f)
         {
             //too far
             return false;
         }
 
-        //ToDo: Do this correctly with the proper model
         Vec3 direction = target.subtract(startPos).normalize();
-        Vec3 thisStartPos = startPos.add(direction.scale(0.4));//start it off the centre, but still within the block
+        //start it slightly off the block
+        double largestDirectionCoord = Math.max(Math.abs(direction.x), Math.max(Math.abs(direction.y), Math.abs(direction.z)));
+        Vec3 thisStartPos = startPos.add(direction.scale(0.5 / largestDirectionCoord + 0.001));
 
         BlockHitResult result = world.clip(new ClipContext(thisStartPos, target, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, null));
 
-        if(result.getType() == HitResult.Type.MISS || result.getBlockPos().equals(target))
-        {
-            return true;
-        }
-
-        return false;
+        return result.getType() == HitResult.Type.MISS || result.getLocation().distanceToSqr(target) < 1.0;
     }
 
     public void EnsureConnection(WispNode node, eConnectionType type)

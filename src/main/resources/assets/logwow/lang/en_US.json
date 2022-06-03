@@ -13,6 +13,9 @@
     "logwow.whitelist": "Whitelist",
     "logwow.item_filter": "Item Filter",
     "logwow.tag_filter": "Tag Filter",
+	
+	"logwow.tooltip.insert_hint":"Sneak right click on a block to insert wisp",
+	"logwow.tooltip.enchant_hint":"Can be enchanted",
 
     "logwow.enhancement.provider": "Provider"
 }
