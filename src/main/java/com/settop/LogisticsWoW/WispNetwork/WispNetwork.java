@@ -284,8 +284,7 @@ public class WispNetwork
         if(level.dimension().location() == networkDim)
         {
             //same dimension, try and connect directly
-            Vec3 testPos = GetClosestPos(node.GetPos());
-            if (node.CanConnectToPos(level, testPos, node.autoConnectRange))
+            if (node.CanConnectToPos(level, GetClosestPos(node.GetPos()), node.autoConnectRange))
             {
                 //node is connected directly to the network
                 AddNode(GetDim(level), node);
@@ -325,7 +324,7 @@ public class WispNetwork
                         continue;
                     }
                     int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), node.GetAutoConnectRange());
-                    if(node.CanConnectToPos(level, Vec3.atCenterOf(registeredNode.GetPos()), autoConnectRangeToCheck))
+                    if(node.CanConnectToPos(level, registeredNode.GetPos(), autoConnectRangeToCheck))
                     {
                         if(!hasConnected)
                         {
@@ -352,7 +351,7 @@ public class WispNetwork
             for(WispNode registeredNode : nodesToRecheckConnection)
             {
                 int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), node.GetAutoConnectRange());
-                if(node.CanConnectToPos(level, Vec3.atCenterOf(registeredNode.GetPos()), autoConnectRangeToCheck))
+                if(node.CanConnectToPos(level, registeredNode.GetPos(), autoConnectRangeToCheck))
                 {
                     node.EnsureConnection(registeredNode, WispNode.eConnectionType.AutoConnect);
                 }
@@ -388,7 +387,7 @@ public class WispNetwork
                         continue;
                     }
                     int autoConnectRangeToCheck = Math.max(registeredNode.GetAutoConnectRange(), nodeToConnect.GetAutoConnectRange());
-                    if(nodeToConnect.CanConnectToPos(level, Vec3.atCenterOf(registeredNode.GetPos()), autoConnectRangeToCheck))
+                    if(nodeToConnect.CanConnectToPos(level, registeredNode.GetPos(), autoConnectRangeToCheck))
                     {
                         nodeToConnect.EnsureConnection(registeredNode, WispNode.eConnectionType.AutoConnect);
                     }
@@ -415,7 +414,7 @@ public class WispNetwork
 
         int autoConnectRangeToCheck = Math.max(nodeToConnect.GetAutoConnectRange(), connectedNode.GetAutoConnectRange());
 
-        if(connectedNode.CanConnectToPos(level, Vec3.atCenterOf(nodeToConnect.GetPos()), autoConnectRangeToCheck))
+        if(connectedNode.CanConnectToPos(level, nodeToConnect.GetPos(), autoConnectRangeToCheck))
         {
             nodeToConnect.AddConnectionAndNetworkConnection(connectedNode, WispNode.eConnectionType.AutoConnect);
             EnsureConnectionToAllNodesInRange(level, nodeToConnect);
@@ -590,7 +589,7 @@ public class WispNetwork
             //first check to see if any existing connections are broken
             if(dim == networkDim)
             {
-                Vec3 testPos = GetClosestPos(node.GetPos());
+                BlockPos testPos = GetClosestPos(node.GetPos());
                 if(node.networkConnectionNode == null)
                 {
                     //check to see if the direct network connection is broken
@@ -613,7 +612,7 @@ public class WispNetwork
             for(Iterator<WispNode.Connection> connIt = node.connectedNodes.iterator(); connIt.hasNext();)
             {
                 WispNode.Connection connection = connIt.next();
-                if(!node.CanConnectToPos(level, Vec3.atCenterOf(connection.nodePos), TestRange))
+                if(!node.CanConnectToPos(level, connection.nodePos, TestRange))
                 {
                     //break the connection
                     if(node.networkConnectionNode == connection)
@@ -665,24 +664,11 @@ public class WispNetwork
         }
     }
 
-    public Vec3 GetClosestPos(Vec3 inPos)
+    public BlockPos GetClosestPos(BlockPos inPos)
     {
-        //the network is a 3x3x3 multiblock
-        //so want to test to the closest block of the multiblock
-        Vec3 networkPosVec = Vec3.atCenterOf(networkPos);
-        Vec3 offset = inPos.subtract(networkPosVec);
-        //clamp the offset to within the bounds of the network
-        offset = new Vec3(
-                Math.min(Math.max(offset.x(), -1.5f), 1.5f),
-                Math.min(Math.max(offset.y(), -1.5f), 1.5f),
-                Math.min(Math.max(offset.z(), -1.5f), 1.5f)
-        );
-        return networkPosVec.add(offset);
-    }
-
-    public Vec3 GetClosestPos(BlockPos inPos)
-    {
-        return GetClosestPos(Vec3.atCenterOf(inPos));
+        BlockPos offset = inPos.subtract(networkPos);
+        offset = Utils.clamp(offset, -1, 1);
+        return networkPos.offset(offset);
     }
 
     public static WispNetwork CreateAndRead(ResourceLocation dim, BlockPos pos, CompoundTag nbt)

@@ -19,6 +19,7 @@ import net.minecraft.util.Tuple;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
@@ -28,6 +29,7 @@ import net.minecraftforge.client.event.RenderLevelLastEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.event.world.ChunkDataEvent;
+import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.LogicalSide;
@@ -358,8 +360,11 @@ public class GlobalWispData
             LevelWispData dimData =  EnsureWorldData(dimOrphanedNodes.getKey());
             for(WispNode orphanedNode : dimOrphanedNodes.getValue())
             {
-                ChunkWisps otherChunkData = dimData.EnsureChunkWisps(orphanedNode.GetPos());
+                ChunkPos chunkPos = Utils.GetChunkPos(orphanedNode.GetPos());
+                ChunkWisps otherChunkData = dimData.EnsureChunkWisps(chunkPos);
                 otherChunkData.unregisteredNodes.add(orphanedNode);
+
+                dimData.MarkChunkDirty(chunkPos);
             }
         }
     }
@@ -499,6 +504,7 @@ public class GlobalWispData
                     {
                         it.remove();
                         queuedTestConnection.add(unregisteredNode);
+                        dimData.MarkChunkDirty(chunkToCheck);
                     }
                 }
             }
@@ -577,6 +583,16 @@ public class GlobalWispData
                 it.remove();
             }
         }
+
+        for(ChunkPos dirtyChunk : dimData.dirtyChunks)
+        {
+            ChunkAccess chunk = tickEvent.world.getChunk(dirtyChunk.x, dirtyChunk.z, ChunkStatus.FULL, false);
+            if(chunk != null)
+            {
+                chunk.setUnsaved(true);
+            }
+        }
+        dimData.dirtyChunks.clear();
 
         for(Iterator<Map.Entry<ChunkPos, LevelWispData.UpdatedChunk>> it = dimData.updatedChunkTimers.entrySet().iterator(); it.hasNext();)
         {
@@ -674,7 +690,7 @@ public class GlobalWispData
     }
 
     @SubscribeEvent
-    public static synchronized void OnChunkUnload(ChunkDataEvent.Unload unloadEvent)
+    public static synchronized void OnChunkUnload(ChunkEvent.Unload unloadEvent)
     {
         if(unloadEvent.getWorld().isClientSide()) return;
 

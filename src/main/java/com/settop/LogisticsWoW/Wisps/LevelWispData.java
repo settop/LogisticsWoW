@@ -39,6 +39,7 @@ public class LevelWispData extends SavedData
     }
     public final ArrayDeque<LoadingChunkData> loadingChunks = new ArrayDeque<>();
     public final HashMap<ChunkPos, UpdatedChunk> updatedChunkTimers = new HashMap<>();
+    public final ArrayList<ChunkPos> dirtyChunks = new ArrayList<>();
 
     public final ResourceLocation dim;
 
@@ -51,10 +52,13 @@ public class LevelWispData extends SavedData
     public HashMap<ChunkPos, ChunkWisps> chunkData = new HashMap<>();
     public final ArrayList<WispNetwork> wispNetworks = new ArrayList<>();
 
+    public ChunkWisps EnsureChunkWisps(ChunkPos chunkPos)
+    {
+        return chunkData.computeIfAbsent(chunkPos, (key)->new ChunkWisps());
+    }
     public ChunkWisps EnsureChunkWisps(BlockPos blockPos)
     {
-        ChunkPos chunkPos = Utils.GetChunkPos(blockPos);
-        return chunkData.computeIfAbsent(chunkPos, (key)->new ChunkWisps());
+        return EnsureChunkWisps(Utils.GetChunkPos(blockPos));
     }
     public ChunkWisps GetChunkWisps(BlockPos blockPos)
     {
@@ -68,6 +72,14 @@ public class LevelWispData extends SavedData
     public boolean HasChunkData(ChunkPos chunkPos)
     {
         return chunkData.containsKey(chunkPos);
+    }
+
+    public void MarkChunkDirty(ChunkPos chunkPos)
+    {
+        if(!dirtyChunks.contains(chunkPos))
+        {
+            dirtyChunks.add(chunkPos);
+        }
     }
 
     public void load(CompoundTag nbt)

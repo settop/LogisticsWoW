@@ -7,6 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Tuple;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
@@ -111,25 +112,27 @@ public class WispNode
     {
     }
 
-    public boolean CanConnectToPos(Level world, Vec3 target, int connectionRange)
+    public boolean CanConnectToPos(Level world, BlockPos target, int connectionRange)
     {
-        Vec3 startPos = Vec3.atCenterOf(pos);
-        Vec3 offset = target.subtract(startPos);
-        double minecraftDistance = Math.max(Math.abs(offset.x), Math.max(Math.abs(offset.y), Math.abs(offset.z)));
-        if(minecraftDistance > connectionRange + 0.5f)
+        BlockPos blockOffset = target.subtract(pos);
+        int minecraftDistance = Math.max(Math.abs(blockOffset.getX()), Math.max(Math.abs(blockOffset.getY()), Math.abs(blockOffset.getZ())));
+        if(minecraftDistance > connectionRange)
         {
             //too far
             return false;
         }
 
-        Vec3 direction = target.subtract(startPos).normalize();
-        //start it slightly off the block
-        double largestDirectionCoord = Math.max(Math.abs(direction.x), Math.max(Math.abs(direction.y), Math.abs(direction.z)));
-        Vec3 thisStartPos = startPos.add(direction.scale(0.5 / largestDirectionCoord + 0.001));
+        Tuple<Vec3, Vec3> closestPositions = Utils.GetClosestBlockPositions(pos, target);
 
-        BlockHitResult result = world.clip(new ClipContext(thisStartPos, target, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, null));
+        Vec3 direction = closestPositions.getB().subtract(closestPositions.getA()).normalize();
+        //move the start pos off the block slightly to avoid a self intersection
+        Vec3 thisStartPos = closestPositions.getA().add(direction.scale(0.01));
 
-        return result.getType() == HitResult.Type.MISS || result.getLocation().distanceToSqr(target) < 1.0;
+        BlockHitResult result = world.clip(new ClipContext(thisStartPos, closestPositions.getB(), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, null));
+
+        //success if we hit nothing, or if we hit a point that is very close the the target point
+        //the hit point may not be on the actual block we are aiming at, but that is fine since we are checking points on edges precision could return either block
+        return result.getType() == HitResult.Type.MISS || result.getLocation().distanceToSqr(closestPositions.getB()) < 0.01;
     }
 
     public void EnsureConnection(WispNode node, eConnectionType type)
