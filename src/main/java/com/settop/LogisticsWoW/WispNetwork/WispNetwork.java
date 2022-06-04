@@ -3,11 +3,14 @@ package com.settop.LogisticsWoW.WispNetwork;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector3f;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Tuple;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -220,12 +223,12 @@ public class WispNetwork
         });
     }
 
-    public HashMap<ResourceLocation,ArrayList<WispNode>> ClearUnclaimed(ResourceLocation dim, ChunkPos chunk)
+    public Tuple<Boolean, HashMap<ResourceLocation,ArrayList<WispNode>>> ClearUnclaimed(ResourceLocation dim, ChunkPos chunk)
     {
         ChunkData chunkData = GetChunkData(dim, chunk);
         if(chunkData == null)
         {
-            return null;
+            return new Tuple<>(false, null);
         }
 
         ArrayList<WispNode> unclaimedNodes = new ArrayList<>();
@@ -239,7 +242,7 @@ public class WispNetwork
 
         if(unclaimedNodes.isEmpty())
         {
-            return null;
+            return new Tuple<>(false, null);
         }
         HashMap<ResourceLocation,ArrayList<WispNode>> orphanedNodes  = new HashMap<>();
 
@@ -258,7 +261,7 @@ public class WispNetwork
             orphanedNodes.forEach((key, dimOrphans)-> dimOrphans.remove(unclaimedNode));
         }
 
-        return orphanedNodes;
+        return new Tuple<>(true, orphanedNodes);
     }
 
     public void ClearClaims(ResourceLocation dim, ChunkPos chunk)
@@ -788,9 +791,7 @@ public class WispNetwork
     public void Render(RenderLevelLastEvent evt, PoseStack poseStack, VertexConsumer builder)
     {
         poseStack.pushPose();
-        poseStack.translate(0.5f, 0.5f, 0.5f);
         Matrix4f matrix = poseStack.last().pose();
-
 
         for (DimensionData dimData : dimensionData.values())
         {
@@ -838,6 +839,28 @@ public class WispNetwork
                             //.lightmap(15728880)
                             .normal(0.f, 1.f, 0.f)
                             .endVertex();
+
+                    //show the node as a cross
+                    for(Direction.Axis axis : Direction.Axis.values())
+                    {
+                        Direction direction = Direction.fromAxisAndDirection(axis, Direction.AxisDirection.POSITIVE);
+                        Vector3f offset = direction.step();
+                        offset.mul(0.6f);
+
+                        builder.vertex(matrix, node.GetPos().getX() + offset.x(), node.GetPos().getY() + offset.y(), node.GetPos().getZ() + offset.z())
+                                .color(0.f, 0.f, 1.f, 0.8f)
+                                //.overlayCoords(OverlayTexture.NO_OVERLAY)
+                                //.lightmap(15728880)
+                                .normal(0.f, 1.f, 0.f)
+                                .endVertex();
+
+                        builder.vertex(matrix, node.GetPos().getX() - offset.x(), node.GetPos().getY() - offset.y(), node.GetPos().getZ() - offset.z())
+                                .color(0.f, 0.f, 1.f, 0.8f)
+                                //.overlayCoords(OverlayTexture.NO_OVERLAY)
+                                //.lightmap(15728880)
+                                .normal(0.f, 1.f, 0.f)
+                                .endVertex();
+                    }
                 });
             }
             poseStack.popPose();

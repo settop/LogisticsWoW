@@ -32,8 +32,9 @@ public class ChunkWisps
         }
     }
 
-    public void ClearUnclaimed()
+    public boolean ClearUnclaimed()
     {
+        boolean anyRemoved = false;
         for(Iterator<WispNode> it = unregisteredNodes.iterator(); it.hasNext(); )
         {
             WispNode node = it.next();
@@ -49,14 +50,14 @@ public class ChunkWisps
                 }
                 node.connectedNodes.clear();
                 it.remove();
+                anyRemoved = true;
             }
         }
+        return anyRemoved;
     }
 
     public CompoundTag save()
     {
-        //don't save unclaimed, something must have happened to remove their corresponding block entity
-
         if(unregisteredNodes.isEmpty())
         {
             //nothing to save
@@ -68,22 +69,15 @@ public class ChunkWisps
         ListTag nodes = new ListTag();
         for( WispNode node : unregisteredNodes)
         {
-            if(node.claimed)
+            if(node instanceof WispBase)
             {
-                if(node instanceof WispBase)
-                {
-                    CompoundTag wispNBT = node.Save();
-                    wisps.add(wispNBT);
-                }
-                else
-                {
-                    CompoundTag nodeNBT = node.Save();
-                    nodes.add(nodeNBT);
-                }
+                CompoundTag wispNBT = node.Save();
+                wisps.add(wispNBT);
             }
             else
             {
-                LogisticsWoW.LOGGER.error("Unclaimed node in chunk on save");
+                CompoundTag nodeNBT = node.Save();
+                nodes.add(nodeNBT);
             }
         }
         nbt.put("wisps", wisps);
