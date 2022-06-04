@@ -80,8 +80,8 @@ public class WispNetwork
         }
     }
 
-    public final ResourceLocation dim;
-    public final BlockPos pos;
+    public final ResourceLocation networkDim;
+    public final BlockPos networkPos;
     public boolean claimed = false;
 
     private final HashMap<ResourceLocation, DimensionData> dimensionData = new HashMap<>();
@@ -96,12 +96,12 @@ public class WispNetwork
 
     public WispNetwork(ResourceLocation dim, BlockPos pos)
     {
-        this.dim = dim;
-        this.pos = pos;
+        this.networkDim = dim;
+        this.networkPos = pos;
     }
 
-    public ResourceLocation GetDim() { return dim; }
-    public BlockPos GetPos() { return pos; }
+    public ResourceLocation GetDim() { return networkDim; }
+    public BlockPos GetPos() { return networkPos; }
 
     @Nullable
     private DimensionData GetDimensionData(ResourceLocation dim)
@@ -261,10 +261,24 @@ public class WispNetwork
         return orphanedNodes;
     }
 
+    public void ClearClaims(ResourceLocation dim, ChunkPos chunk)
+    {
+        ChunkData chunkData = GetChunkData(dim, chunk);
+        if(chunkData == null)
+        {
+            return;
+        }
+
+        for(WispNode node : chunkData.nodes)
+        {
+            node.claimed = false;
+        }
+    }
+
     public boolean TryAndConnectNodeToNetwork(Level level, WispNode node)
     {
         boolean hasConnected = false;
-        if(level.dimension().location() == dim)
+        if(level.dimension().location() == networkDim)
         {
             //same dimension, try and connect directly
             Vec3 testPos = GetClosestPos(node.GetPos());
@@ -421,6 +435,7 @@ public class WispNetwork
     {
         for(WispNode n = testNode; ; n = n.networkConnectionNode.node.get())
         {
+            assert n != null;
             if(!n.CanBeUsedAsNetworkConnection())
             {
                 return false;
@@ -457,6 +472,7 @@ public class WispNetwork
             }
 
             WispNode connectedNode = connection.node.get();
+            assert connectedNode != null;
             connectedNode.connectedNodes.removeIf(otherConnection->otherConnection.nodePos.equals(node.GetPos()));
             connectionIt.remove();
         }
@@ -468,33 +484,8 @@ public class WispNetwork
         CleanupNodeInternal(node);
     }
 
-    //Returns any nodes that are no longer connected to the network
-    public HashMap<ResourceLocation,ArrayList<WispNode>> RemoveNode(ResourceLocation dim, WispNode node)
+    private void ProcessOrphanedNodes(ResourceLocation dim, ArrayList<WispNode> orphanedNodes)
     {
-        //now need to remove it's connections
-        ArrayList<WispNode> orphanedNodes = new ArrayList<>();
-        for(WispNode.Connection connection : node.connectedNodes)
-        {
-            WispNode otherNode = connection.node.get();
-            for(Iterator<WispNode.Connection> otherConnectionIt = otherNode.connectedNodes.iterator(); otherConnectionIt.hasNext();)
-            {
-                WispNode.Connection otherConnection = otherConnectionIt.next();
-                if(otherConnection.nodePos.equals(node.GetPos()))
-                {
-                    if(otherNode.networkConnectionNode == otherConnection)
-                    {
-                        otherNode.networkConnectionNode = null;
-                        otherNode.connectedNetwork = null;
-                        orphanedNodes.add(otherNode);
-                    }
-                    otherConnectionIt.remove();
-                    break;
-                }
-            }
-        }
-        node.connectedNodes.clear();
-        RemoveNodeInternal(dim, node);
-
         boolean updated = true;
         while(updated)
         {
@@ -526,6 +517,7 @@ public class WispNetwork
                     for (WispNode.Connection connection : orphanedNode.connectedNodes)
                     {
                         WispNode connectedNode = connection.node.get();
+                        assert connectedNode != null;
                         if (connectedNode.networkConnectionNode != null && connectedNode.networkConnectionNode.nodePos.equals(orphanedNode.GetPos()))
                         {
                             connectedNode.networkConnectionNode = null;
@@ -540,25 +532,149 @@ public class WispNetwork
         {
             RemoveNodeInternal(dim, orphanedNode);
         }
+    }
+
+    //Returns any nodes that are no longer connected to the network
+    public HashMap<ResourceLocation,ArrayList<WispNode>> RemoveNode(ResourceLocation dim, WispNode node)
+    {
+        //now need to remove it's connections
+        ArrayList<WispNode> orphanedNodes = new ArrayList<>();
+        for(WispNode.Connection connection : node.connectedNodes)
+        {
+            WispNode otherNode = connection.node.get();
+            assert otherNode != null;
+            for(Iterator<WispNode.Connection> otherConnectionIt = otherNode.connectedNodes.iterator(); otherConnectionIt.hasNext();)
+            {
+                WispNode.Connection otherConnection = otherConnectionIt.next();
+                if(otherConnection.nodePos.equals(node.GetPos()))
+                {
+                    if(otherNode.networkConnectionNode == otherConnection)
+                    {
+                        otherNode.networkConnectionNode = null;
+                        otherNode.connectedNetwork = null;
+                        orphanedNodes.add(otherNode);
+                    }
+                    otherConnectionIt.remove();
+                    break;
+                }
+            }
+        }
+        node.connectedNodes.clear();
+        RemoveNodeInternal(dim, node);
+
+        ProcessOrphanedNodes(dim, orphanedNodes);
 
         HashMap<ResourceLocation,ArrayList<WispNode>> orphanedNodesMap = new HashMap<>();
         orphanedNodesMap.put(dim, orphanedNodes);
         return orphanedNodesMap;
     }
 
+    public HashMap<ResourceLocation,ArrayList<WispNode>> CheckConnections(Level level, ChunkPos chunkToCheck)
+    {
+        //first try and connect the nodes to any unconnected nodes
+        ResourceLocation dim = GetDim(level);
+        ChunkData chunkData = GetChunkData(dim, chunkToCheck);
+        if(chunkData == null)
+        {
+            return null;
+        }
+        ArrayList<WispNode> orphanedNodes = new ArrayList<>();
+
+        //use some large connection range, since we already know we are in range since the connection already exists
+        final int TestRange = 10000;
+        for(WispNode node : chunkData.nodes)
+        {
+            //first check to see if any existing connections are broken
+            if(dim == networkDim)
+            {
+                Vec3 testPos = GetClosestPos(node.GetPos());
+                if(node.networkConnectionNode == null)
+                {
+                    //check to see if the direct network connection is broken
+                    if (!node.CanConnectToPos(level, testPos, TestRange))
+                    {
+                        node.networkConnectionNode = null;
+                        node.connectedNetwork = null;
+                        orphanedNodes.add(node);
+                    }
+                }
+                else
+                {
+                    //check to see if we can form a direct connection
+                    if (node.CanConnectToPos(level, testPos, node.autoConnectRange))
+                    {
+                        node.networkConnectionNode = null;
+                    }
+                }
+            }
+            for(Iterator<WispNode.Connection> connIt = node.connectedNodes.iterator(); connIt.hasNext();)
+            {
+                WispNode.Connection connection = connIt.next();
+                if(!node.CanConnectToPos(level, Vec3.atCenterOf(connection.nodePos), TestRange))
+                {
+                    //break the connection
+                    if(node.networkConnectionNode == connection)
+                    {
+                        node.networkConnectionNode = null;
+                        node.connectedNetwork = null;
+                        orphanedNodes.add(node);
+                    }
+
+                    WispNode otherNode = connection.node.get();
+                    assert otherNode != null;
+
+                    for(Iterator<WispNode.Connection> otherConnIt = otherNode.connectedNodes.iterator(); otherConnIt.hasNext();)
+                    {
+                        WispNode.Connection otherConnection = otherConnIt.next();
+                        if(otherConnection.nodePos.equals(node.GetPos()))
+                        {
+                            if(otherNode.networkConnectionNode == otherConnection)
+                            {
+                                otherNode.networkConnectionNode = null;
+                                otherNode.connectedNetwork = null;
+                                orphanedNodes.add(otherNode);
+                            }
+                            otherConnIt.remove();
+                            break;
+                        }
+                    }
+
+                    connIt.remove();
+                }
+            }
+
+            //Second make sure any new connections are made
+            EnsureConnectionToAllNodesInRange(level, node);
+        }
+
+
+        if(orphanedNodes.isEmpty())
+        {
+            return null;
+        }
+        else
+        {
+            ProcessOrphanedNodes(dim, orphanedNodes);
+
+            HashMap<ResourceLocation,ArrayList<WispNode>> orphanedNodesMap = new HashMap<>();
+            orphanedNodesMap.put(dim, orphanedNodes);
+            return orphanedNodesMap;
+        }
+    }
+
     public Vec3 GetClosestPos(Vec3 inPos)
     {
         //the network is a 3x3x3 multiblock
         //so want to test to the closest block of the multiblock
-        Vec3 networkPos = Vec3.atCenterOf(pos);
-        Vec3 offset = inPos.subtract(networkPos);
+        Vec3 networkPosVec = Vec3.atCenterOf(networkPos);
+        Vec3 offset = inPos.subtract(networkPosVec);
         //clamp the offset to within the bounds of the network
         offset = new Vec3(
                 Math.min(Math.max(offset.x(), -1.5f), 1.5f),
                 Math.min(Math.max(offset.y(), -1.5f), 1.5f),
                 Math.min(Math.max(offset.z(), -1.5f), 1.5f)
         );
-        return networkPos.add(offset);
+        return networkPosVec.add(offset);
     }
 
     public Vec3 GetClosestPos(BlockPos inPos)
@@ -716,7 +832,7 @@ public class WispNetwork
                             .normal(0.f, 1.f, 0.f)
                             .endVertex();
 
-                    builder.vertex(matrix, pos.getX(), pos.getY(), pos.getZ())
+                    builder.vertex(matrix, networkPos.getX(), networkPos.getY(), networkPos.getZ())
                             .color(0.4f, 0.4f, 0.4f, 0.8f)
                             //.overlayCoords(OverlayTexture.NO_OVERLAY)
                             //.lightmap(15728880)

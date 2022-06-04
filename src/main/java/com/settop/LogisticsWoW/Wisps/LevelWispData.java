@@ -12,14 +12,33 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraftforge.event.world.ChunkDataEvent;
 import com.settop.LogisticsWoW.Utils.Utils;
 import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
+import net.minecraftforge.event.world.ChunkEvent;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.function.Consumer;
 
 public class LevelWispData extends SavedData
 {
     static public final String NAME = "WispData";
+
+    public static final int InitialChunkTickUpdateWait = 10;
+    public static final int MaxChunkTickUpdateWait = 40;
+    public static final int AdditionalChunkTickUpdateWait = 2;
+
+    public static class LoadingChunkData
+    {
+        public ChunkPos chunkPos;
+        public int tickCounter;
+    }
+    public static class UpdatedChunk
+    {
+        public int tickCounter;
+        public int totalTicksToWait;
+    }
+    public final ArrayDeque<LoadingChunkData> loadingChunks = new ArrayDeque<>();
+    public final HashMap<ChunkPos, UpdatedChunk> updatedChunkTimers = new HashMap<>();
 
     public final ResourceLocation dim;
 
@@ -68,7 +87,7 @@ public class LevelWispData extends SavedData
                 boolean dataRead = false;
                 for(WispNetwork existingNetwork : wispNetworks)
                 {
-                    if(existingNetwork.pos.equals(pos))
+                    if(existingNetwork.GetPos().equals(pos))
                     {
                         dataRead = true;
                         existingNetwork.read(networkNBT);
@@ -78,24 +97,21 @@ public class LevelWispData extends SavedData
                 if(!dataRead)
                 {
                     WispNetwork network = WispNetwork.CreateAndRead(dim, pos, networkNBT);
-                    if(network != null)
-                    {
-                       wispNetworks.add(network);
-                    }
+                    wispNetworks.add(network);
                 }
             }
         }
     }
 
     @Override
-    public CompoundTag save(CompoundTag compound)
+    public @NotNull CompoundTag save(@NotNull CompoundTag compound)
     {
         ListTag networksNBT = new ListTag();
 
         for(WispNetwork wispNetwork : wispNetworks)
         {
             CompoundTag networkNBT = new CompoundTag();
-            networkNBT.put("pos", NbtUtils.writeBlockPos(wispNetwork.pos));
+            networkNBT.put("pos", NbtUtils.writeBlockPos(wispNetwork.GetPos()));
             networksNBT.add(wispNetwork.write(networkNBT));
         }
         compound.put("networks", networksNBT);
@@ -135,5 +151,11 @@ public class LevelWispData extends SavedData
         newChunkWisps.load(((Level)loadEvent.getWorld()).dimension().location(), chunkLoad);
 
         chunkData.put(loadEvent.getChunk().getPos(), newChunkWisps);
+    }
+
+    public void OnChunkUnload(ChunkEvent.Unload unloadEvent)
+    {
+        ChunkPos chunkPos = unloadEvent.getChunk().getPos();
+        chunkData.remove(chunkPos);
     }
 }

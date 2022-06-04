@@ -30,7 +30,8 @@ public class WispConnectionNodeBlockEntity extends BlockEntity
             }
             try
             {
-                GlobalWispData.TryAndConnectNodeToANetwork(level, node, autoConnectRange);
+                node.SetAutoConnectRange(autoConnectRange);
+                GlobalWispData.TryAndConnectNodeToANetwork(level, node);
             }
             catch (Exception ex)
             {
