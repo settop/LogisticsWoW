@@ -50,6 +50,7 @@ public class LevelWispData extends SavedData
     }
 
     public HashMap<ChunkPos, ChunkWisps> chunkData = new HashMap<>();
+    public HashMap<ChunkPos, ChunkWisps> unloadedChunkData = new HashMap<>();
     public final ArrayList<WispNetwork> wispNetworks = new ArrayList<>();
 
     public ChunkWisps EnsureChunkWisps(ChunkPos chunkPos)
@@ -140,6 +141,10 @@ public class LevelWispData extends SavedData
     public void OnChunkSave(ChunkDataEvent.Save saveEvent)
     {
         ChunkWisps chunkWisps = chunkData.get(saveEvent.getChunk().getPos());
+        if(chunkWisps == null)
+        {
+            chunkWisps = unloadedChunkData.get(saveEvent.getChunk().getPos());
+        }
         if(chunkWisps != null)
         {
             CompoundTag data = saveEvent.getData();
@@ -153,6 +158,7 @@ public class LevelWispData extends SavedData
 
     public void OnChunkLoad(ChunkDataEvent.Load loadEvent)
     {
+        unloadedChunkData.remove(loadEvent.getChunk().getPos());
         if(!loadEvent.getData().contains(LogisticsWoW.MOD_ID))
         {
             return;
@@ -168,6 +174,11 @@ public class LevelWispData extends SavedData
     public void OnChunkUnload(ChunkEvent.Unload unloadEvent)
     {
         ChunkPos chunkPos = unloadEvent.getChunk().getPos();
-        chunkData.remove(chunkPos);
+        ChunkWisps unloadedData = chunkData.remove(chunkPos);
+        if(unloadedData != null)
+        {
+            //can't just delete the chunk data, since we might still get a save come in for this chunk after it has unloaded
+            unloadedChunkData.put(chunkPos, unloadedData);
+        }
     }
 }
