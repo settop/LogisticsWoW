@@ -8,11 +8,19 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class ProviderEnhancement implements IEnhancement
 {
@@ -160,6 +168,38 @@ public class ProviderEnhancement implements IEnhancement
     public EnhancementTypes GetType()
     {
         return EnhancementTypes.PROVIDER;
+    }
+
+    @Override
+    public void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn)
+    {
+        tooltip.add(new TranslatableComponent(whitelistEnabled ? "logwow.whitelist" : "logwow.blacklist"));
+        switch (filterType)
+        {
+            case Item:
+            {
+                tooltip.add(new TranslatableComponent("logwow.item_filter").append(":"));
+                for(int i = 0; i < filter.getContainerSize(); ++i)
+                {
+                    ItemStack item = filter.getItem(i);
+                    if(!item.isEmpty())
+                    {
+                        tooltip.add(new TextComponent(" - ").append(item.getDisplayName()));
+                    }
+                }
+            }
+            break;
+            case Tag:
+            {
+                tooltip.add(new TranslatableComponent("logwow.tag_filter"));
+                for(ResourceLocation tag : tagFilter)
+                {
+                    tooltip.add(new TextComponent(" - ").append(new TextComponent(tag.toString())));
+                }
+            }
+            break;
+        }
+
     }
 
     public boolean IsDirectionSet(Direction dir)
