@@ -636,6 +636,17 @@ public class GlobalWispData
             it.remove();
         }
     }
+    @SubscribeEvent
+    public static synchronized void OnServerTick(TickEvent.ServerTickEvent tickEvent)
+    {
+        for(LevelWispData dimData : worldData.values())
+        {
+            for(WispNetwork wispNetwork : dimData.wispNetworks)
+            {
+                wispNetwork.Tick(tickEvent);
+            }
+        }
+    }
 
     @SubscribeEvent
     public static synchronized void OnChunkSave(ChunkDataEvent.Save saveEvent)

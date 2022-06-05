@@ -22,6 +22,8 @@ import com.settop.LogisticsWoW.Wisps.WispBase;
 import com.settop.LogisticsWoW.Wisps.WispFactory;
 import com.settop.LogisticsWoW.Wisps.WispNode;
 import net.minecraftforge.client.event.RenderLevelLastEvent;
+import net.minecraftforge.event.TickEvent;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -88,6 +90,9 @@ public class WispNetwork
     public boolean claimed = false;
 
     private final HashMap<ResourceLocation, DimensionData> dimensionData = new HashMap<>();
+
+    private final WispTaskManager taskManager = new WispTaskManager();
+    private int tickTime = 0;
 
     private static ResourceLocation GetDim(Level level) { return level.dimension().location(); }
 
@@ -669,6 +674,12 @@ public class WispNetwork
         BlockPos offset = inPos.subtract(networkPos);
         offset = Utils.clamp(offset, -1, 1);
         return networkPos.offset(offset);
+    }
+
+    public void Tick(TickEvent.ServerTickEvent tickEvent)
+    {
+        ++tickTime;
+        taskManager.Advance(tickEvent, this, tickTime);
     }
 
     public static WispNetwork CreateAndRead(ResourceLocation dim, BlockPos pos, CompoundTag nbt)
