@@ -29,8 +29,6 @@ public abstract class SmallButton extends Button
     public void renderButton(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
     {
         matrixStack.pushPose();
-        //have to deal with the backwards way minecraft handles matrices :/
-        //so need to translate first
         matrixStack.translate(this.x, this.y, 0.f);
         matrixStack.scale(0.25f, 0.25f, 1.f);
 

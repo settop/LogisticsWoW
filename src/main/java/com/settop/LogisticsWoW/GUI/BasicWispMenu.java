@@ -16,6 +16,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,15 +38,15 @@ public class BasicWispMenu extends MultiScreenMenu implements BasicWispContents.
         BlockPos pos = extraData.readBlockPos();
         BlockState blockState = playerInventory.player.level.getBlockState(pos);
         BlockEntity blockEntity = playerInventory.player.level.getBlockEntity(pos);
-        return new BasicWispMenu(id, playerInventory, new BasicWispContents( contentsSize ), null, blockState, blockEntity);
+        return new BasicWispMenu(id, playerInventory, null, new BasicWispContents( contentsSize ), null, blockState, blockEntity);
     }
 
-    public static BasicWispMenu CreateMenu(int id, Inventory playerInventory, BasicWispContents inWispContents, WispBase inParentWisp)
+    public static BasicWispMenu CreateMenu(int id, Inventory playerInventory, Player player, BasicWispContents inWispContents, WispBase inParentWisp)
     {
         BlockPos pos = inParentWisp.GetPos();
         BlockState blockState = playerInventory.player.level.getBlockState(pos);
         BlockEntity blockEntity = playerInventory.player.level.getBlockEntity(pos);
-        return new BasicWispMenu(id, playerInventory, inWispContents, inParentWisp, blockState, blockEntity);
+        return new BasicWispMenu(id, playerInventory, player, inWispContents, inParentWisp, blockState, blockEntity);
     }
 
 
@@ -54,9 +55,9 @@ public class BasicWispMenu extends MultiScreenMenu implements BasicWispContents.
     public static final int PLAYER_INVENTORY_XPOS = 3;
     public static final int PLAYER_INVENTORY_YPOS = 101;
 
-    private BasicWispMenu(int id, Inventory playerInventory, BasicWispContents inWispContents, WispBase inParentWisp, BlockState inBlockState, BlockEntity inBlockEntity)
+    private BasicWispMenu(int id, Inventory playerInventory, Player player, BasicWispContents inWispContents, WispBase inParentWisp, BlockState inBlockState, BlockEntity inBlockEntity)
     {
-        super(LogisticsWoW.Menus.BASIC_WISP_MENU, id);
+        super(LogisticsWoW.Menus.BASIC_WISP_MENU, id, player);
 
         playerInvSubMenu = new PlayerInventorySubMenu(playerInventory, PLAYER_INVENTORY_XPOS, PLAYER_INVENTORY_YPOS);
         WispContentsMenu wispContentsContainer = new WispContentsMenu(inWispContents, WISP_SLOT_XPOS, WISP_SLOT_YPOS);
@@ -94,7 +95,7 @@ public class BasicWispMenu extends MultiScreenMenu implements BasicWispContents.
     }
 
     @Override
-    public boolean stillValid(Player playerIn)
+    public boolean stillValid(@NotNull Player playerIn)
     {
         return wispContents.stillValid(playerIn);
     }
@@ -154,7 +155,7 @@ public class BasicWispMenu extends MultiScreenMenu implements BasicWispContents.
     }
 
     @Override
-    public void removed(Player playerIn)
+    public void removed(@NotNull Player playerIn)
     {
         wispContents.SetListener(null);
         if(parentWisp != null)

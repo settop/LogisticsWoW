@@ -65,6 +65,7 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
     public static final GuiPart OVERLAY_SIDE_CONFIG = new GuiPart(128, 0 , 32, 32);
     public static final GuiPart OVERLAY_BLACKLIST = new GuiPart(160, 0 , 32, 32);
     public static final GuiPart OVERLAY_WHITELIST = new GuiPart(192, 0 , 32, 32);
+    public static final GuiPart OVERLAY_ARROW = new GuiPart(224, 0 , 32, 32);
 
     private List<SubScreen> subScreens;
     private ArrayList<ScreenPopup> openPopups = new ArrayList<>();

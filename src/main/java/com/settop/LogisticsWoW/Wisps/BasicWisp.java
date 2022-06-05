@@ -19,13 +19,14 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraftforge.common.extensions.IForgeLevel;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 
 public class BasicWisp extends WispBase
 {
-    private BasicWispContents contents = new BasicWispContents(2);
+    private final BasicWispContents contents = new BasicWispContents(2);
     private ArrayList<IEnhancement> enhancements;
 
 
@@ -116,18 +117,16 @@ public class BasicWisp extends WispBase
 
     // From MenuProvider
     @Override
-    public Component getDisplayName()
+    public @NotNull Component getDisplayName()
     {
         return new TranslatableComponent("container.logwow.basic_wisp_menu");
     }
 
 
     @Override
-    public AbstractContainerMenu createMenu(int windowID, Inventory playerInventory, Player player)
+    public AbstractContainerMenu createMenu(int windowID, @NotNull Inventory playerInventory, @NotNull Player player)
     {
-        MultiScreenMenu menu = BasicWispMenu.CreateMenu(windowID, playerInventory, contents, this);
-
-        return menu;
+        return BasicWispMenu.CreateMenu(windowID, playerInventory, player, contents, this);
     }
 
     @Override

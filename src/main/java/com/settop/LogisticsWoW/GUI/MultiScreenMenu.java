@@ -6,11 +6,11 @@ import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.StringReferenceHolder;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.PacketDistributor;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
@@ -21,11 +21,12 @@ public class MultiScreenMenu extends AbstractContainerMenu
 {
     private final List<SubMenu> subMenus = new ArrayList<>();
     private final List<StringReferenceHolder> trackedStringReferences = Lists.newArrayList();
-    private ServerPlayer player;
+    private final ServerPlayer player;
 
-    protected MultiScreenMenu(@Nullable MenuType<?> type, int id)
+    protected MultiScreenMenu(@Nullable MenuType<?> type, int id, Player player)
     {
         super(type, id);
+        this.player = (ServerPlayer)player;
     }
 
     protected void SetSubContainers(List<SubMenu> subContainers)
@@ -38,7 +39,7 @@ public class MultiScreenMenu extends AbstractContainerMenu
 
     private void AddSubContainer(SubMenu container)
     {
-        container.SetParent( new WeakReference(this), subMenus.size() );
+        container.SetParent( new WeakReference<>(this), subMenus.size() );
 
         for(Slot subSlot : container.inventorySlots)
         {
@@ -75,29 +76,9 @@ public class MultiScreenMenu extends AbstractContainerMenu
     }
 
     @Override
-    public void addSlotListener(ContainerListener listener)
+    public boolean stillValid(@NotNull Player playerIn)
     {
-        super.addSlotListener(listener);
-        if(listener instanceof ServerPlayer)
-        {
-            player = (ServerPlayer)listener;
-        }
-    }
-
-    @Override
-    public void removeSlotListener(ContainerListener listener)
-    {
-        super.removeSlotListener(listener);
-        if(player == (ServerPlayer)listener)
-        {
-            player = null;
-        }
-    }
-
-    @Override
-    public boolean stillValid(Player playerIn)
-    {
-        return true;
+        return player == null || player == playerIn;
     }
 
     @Override
@@ -117,7 +98,7 @@ public class MultiScreenMenu extends AbstractContainerMenu
     }
 
     @Override
-    public void removed(Player playerIn)
+    public void removed(@NotNull Player playerIn)
     {
         for(SubMenu subContainer : subMenus)
         {
@@ -130,7 +111,7 @@ public class MultiScreenMenu extends AbstractContainerMenu
 
 
     @Override
-    public boolean canDragTo(Slot slotIn)
+    public boolean canDragTo(@NotNull Slot slotIn)
     {
         return !(slotIn instanceof FakeSlot);
     }
@@ -232,15 +213,15 @@ public class MultiScreenMenu extends AbstractContainerMenu
                 return;
             }
             default:
-                return;
+                break;
         }
     }
 
     @Override
-    public void clicked(int slotId, int dragType, ClickType clickTypeIn, Player player)
+    public void clicked(int slotId, int dragType, @NotNull ClickType clickTypeIn, @NotNull Player player)
     {
         Slot clickedSlot = slotId >= 0 ? slots.get(slotId) : null;
-        if (clickedSlot != null && clickedSlot instanceof FakeSlot)
+        if (clickedSlot instanceof FakeSlot)
         {
             FakeSlotClick(slotId, dragType, clickTypeIn, player);
         }
