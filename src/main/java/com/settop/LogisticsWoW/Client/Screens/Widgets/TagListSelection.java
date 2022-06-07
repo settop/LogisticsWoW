@@ -6,9 +6,6 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.settop.LogisticsWoW.Client.Screens.MultiScreen;
-import com.settop.LogisticsWoW.GUI.Network.Packets.CSubWindowPropertyUpdatePacket;
-import com.settop.LogisticsWoW.GUI.SubMenus.ProviderEnhancementSubMenu;
-import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Utils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -20,28 +17,20 @@ import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.ForgeRegistry;
-import net.minecraftforge.registries.IForgeRegistry;
-import net.minecraftforge.registries.RegistryManager;
 import net.minecraftforge.registries.tags.ITagManager;
 import org.apache.commons.lang3.StringUtils;
 import com.settop.LogisticsWoW.GUI.FakeSlot;
-import com.settop.LogisticsWoW.Utils.FakeInventory;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -56,7 +45,7 @@ public abstract class TagListSelection extends AbstractWidget
         private final boolean isDownArrow;
         public ArrowButton(int x, int y, boolean down)
         {
-            super(x, y, new TextComponent(""));
+            super(x, y, 8, new TextComponent(""));
             isDownArrow = down;
         }
 

@@ -1,15 +1,13 @@
 package com.settop.LogisticsWoW.Wisps.Enhancements;
 
-import com.settop.LogisticsWoW.GUI.SubMenus.ProviderEnhancementSubMenu;
+import com.settop.LogisticsWoW.GUI.SubMenus.StorageEnhancementSubMenu;
 import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -22,18 +20,18 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProviderEnhancement implements IEnhancement
+public class StorageEnhancement implements IEnhancement
 {
     public static class Factory implements IEnhancement.IFactory
     {
         @Override
         public IEnhancement Create()
         {
-            return new ProviderEnhancement();
+            return new StorageEnhancement();
         }
 
         @Override
-        public SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity) { return new ProviderEnhancementSubMenu(xPos, yPos, blockState, blockEntity); }
+        public SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity) { return new StorageEnhancementSubMenu(xPos, yPos, blockState, blockEntity); }
     }
 
     public enum eFilterType
@@ -47,9 +45,9 @@ public class ProviderEnhancement implements IEnhancement
     public static final int FILTER_NUM_ROWS = 4;
     public static final int FILTER_SIZE = FILTER_NUM_COLUMNS * FILTER_NUM_ROWS;
 
-    private boolean providedDirections[];
-    private boolean whitelistEnabled = false;
-    private FakeInventory filter = new FakeInventory(FILTER_SIZE, false);
+    private boolean isDefaultStore = false;
+    private int priority = 0;
+    private final FakeInventory filter = new FakeInventory(FILTER_SIZE, false);
     private ArrayList<ResourceLocation> tagFilter;
     private eFilterType filterType = eFilterType.Item;
 
@@ -58,35 +56,8 @@ public class ProviderEnhancement implements IEnhancement
     {
         CompoundTag nbt = new CompoundTag();
 
-        if(providedDirections != null)
-        {
-            boolean anyFalse = false;
-
-            for (boolean b : providedDirections)
-            {
-                if (!b)
-                {
-                    anyFalse = true;
-                    break;
-                }
-            }
-
-            if (anyFalse)
-            {
-                CompoundTag directionsNBT = new CompoundTag();
-                for (int i = 0; i < 6; ++i)
-                {
-                    directionsNBT.putBoolean(Direction.from3DDataValue(i).getSerializedName(), providedDirections[i]);
-                }
-
-                nbt.put("providerDirections", directionsNBT);
-            }
-        }
-
-        if(whitelistEnabled != false)
-        {
-            nbt.putBoolean("whitelistEnabled", whitelistEnabled);
-        }
+        nbt.putBoolean("isDefaultStore", isDefaultStore);
+        nbt.putInt("priority", priority);
 
         if(!filter.isEmpty())
         {
@@ -122,19 +93,13 @@ public class ProviderEnhancement implements IEnhancement
         {
             return;
         }
-        if (nbt.contains("providerDirections"))
+        if (nbt.contains("isDefaultStore"))
         {
-            providedDirections = new boolean[6];
-            CompoundTag directionsNBT = nbt.getCompound("providerDirections");
-
-            for(int i = 0; i < 6; ++i)
-            {
-                providedDirections[i] = directionsNBT.getBoolean(Direction.from3DDataValue(i).getSerializedName());
-            }
+            isDefaultStore = nbt.getBoolean("isDefaultStore");
         }
-        if (nbt.contains("whitelistEnabled"))
+        if (nbt.contains("priority"))
         {
-            whitelistEnabled = nbt.getBoolean("whitelistEnabled");
+            priority = nbt.getInt("priority");
         }
 
         if (nbt.contains("filter"))
@@ -167,61 +132,53 @@ public class ProviderEnhancement implements IEnhancement
     @Override
     public EnhancementTypes GetType()
     {
-        return EnhancementTypes.PROVIDER;
+        return EnhancementTypes.STORAGE;
     }
 
     @Override
     public void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn)
     {
-        tooltip.add(new TranslatableComponent(whitelistEnabled ? "logwow.whitelist" : "logwow.blacklist"));
-        switch (filterType)
+        tooltip.add(new TranslatableComponent("logwow.priority").append(String.format(": %d", priority)));
+        if(isDefaultStore)
         {
-            case Item:
+            tooltip.add(new TranslatableComponent("logwow.default_store"));
+        }
+        else
+        {
+            switch (filterType)
             {
-                tooltip.add(new TranslatableComponent("logwow.item_filter").append(":"));
-                for(int i = 0; i < filter.getContainerSize(); ++i)
+                case Item:
                 {
-                    ItemStack item = filter.getItem(i);
-                    if(!item.isEmpty())
+                    tooltip.add(new TranslatableComponent("logwow.item_filter").append(":"));
+                    for(int i = 0; i < filter.getContainerSize(); ++i)
                     {
-                        tooltip.add(new TextComponent(" - ").append(item.getDisplayName()));
+                        ItemStack item = filter.getItem(i);
+                        if(!item.isEmpty())
+                        {
+                            tooltip.add(new TextComponent(" - ").append(item.getDisplayName()));
+                        }
                     }
                 }
-            }
-            break;
-            case Tag:
-            {
-                tooltip.add(new TranslatableComponent("logwow.tag_filter"));
-                for(ResourceLocation tag : tagFilter)
+                break;
+                case Tag:
                 {
-                    tooltip.add(new TextComponent(" - ").append(new TextComponent(tag.toString())));
+                    tooltip.add(new TranslatableComponent("logwow.tag_filter"));
+                    for(ResourceLocation tag : tagFilter)
+                    {
+                        tooltip.add(new TextComponent(" - ").append(new TextComponent(tag.toString())));
+                    }
                 }
-            }
-            break;
-        }
-
-    }
-
-    public boolean IsDirectionSet(Direction dir)
-    {
-        return providedDirections == null || providedDirections[dir.get3DDataValue()];
-    }
-
-    public void SetDirectionProvided(Direction dir, boolean isProvided)
-    {
-        if(providedDirections == null)
-        {
-            providedDirections = new boolean[6];
-            for(int i = 0; i < 6; ++i)
-            {
-                providedDirections[i] = true;
+                break;
             }
         }
-        providedDirections[dir.get3DDataValue()] = isProvided;
+
     }
 
-    public boolean IsWhitelistEnabled() { return whitelistEnabled; }
-    public void SetWhitelistEnabled( boolean enabled ) { whitelistEnabled = enabled; }
+    public boolean IsDefaultStore() { return isDefaultStore; }
+    public void SetIsDefaultStore( boolean enabled ) { isDefaultStore = enabled; }
+
+    public int GetPriority() { return priority; }
+    public void SetPriority(int prio) { priority = prio; }
 
     public FakeInventory GetFilter() { return filter; }
 

@@ -11,7 +11,6 @@ import com.settop.LogisticsWoW.Items.WispEnhancementItem;
 import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.level.block.Block;
@@ -182,7 +181,7 @@ public class LogisticsWoW
 
         // Items
         public static final RegistryObject<Item> WISP_ITEM = ITEMS.register("wisp", BasicWispItem::new );
-        public static final RegistryObject<Item> WISP_PROVIDER_ENHANCEMENT_ITEM = ITEMS.register("wisp_provider_enhancement", () -> new WispEnhancementItem(EnhancementTypes.PROVIDER) );
+        public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(EnhancementTypes.STORAGE) );
 
     }
 }

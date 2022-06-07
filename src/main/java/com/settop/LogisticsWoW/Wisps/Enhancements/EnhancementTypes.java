@@ -1,10 +1,8 @@
 package com.settop.LogisticsWoW.Wisps.Enhancements;
 
-import java.util.List;
-
 public enum EnhancementTypes
 {
-    PROVIDER(ProviderEnhancement.FACTORY, "logwow.enhancement.provider");
+    STORAGE(StorageEnhancement.FACTORY, "logwow.enhancement.storage");
 
     public static final int NUM = EnhancementTypes.values().length;
 

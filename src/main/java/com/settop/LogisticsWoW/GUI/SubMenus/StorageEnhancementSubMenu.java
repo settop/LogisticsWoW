@@ -2,17 +2,15 @@ package com.settop.LogisticsWoW.GUI.SubMenus;
 
 import com.settop.LogisticsWoW.Client.Client;
 import com.settop.LogisticsWoW.Client.Screens.MultiScreen;
-import com.settop.LogisticsWoW.Client.Screens.SubScreens.ProviderSubScreen;
+import com.settop.LogisticsWoW.Client.Screens.SubScreens.StorageSubScreen;
 import com.settop.LogisticsWoW.Client.Screens.SubScreens.SubScreen;
 import com.settop.LogisticsWoW.GUI.FakeSlot;
 import com.settop.LogisticsWoW.GUI.IActivatableSlot;
 import com.settop.LogisticsWoW.LogisticsWoW;
-import com.settop.LogisticsWoW.Utils.BoolArray;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.Utils.StringVariableArrayReferenceHolder;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
-import com.settop.LogisticsWoW.Wisps.Enhancements.ProviderEnhancement;
-import net.minecraft.core.Direction;
+import com.settop.LogisticsWoW.Wisps.Enhancements.StorageEnhancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
@@ -21,20 +19,21 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 
-public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementSubMenu
+public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSubMenu
 {
-    private ProviderEnhancement currentEnhancement;
-    private BoolArray directionsValue = new BoolArray(6);
-    private DataSlot whiteListEnabled = DataSlot.standalone();
-    private BlockState blockState;
-    private FakeInventory filter = new FakeInventory( ProviderEnhancement.FILTER_SIZE, false );
-    private StringVariableArrayReferenceHolder tagFilters = new StringVariableArrayReferenceHolder(';');
-    private DataSlot filterType = DataSlot.standalone();
+    private StorageEnhancement currentEnhancement;
+    private final DataSlot isDefaultStore = DataSlot.standalone();
+    private final DataSlot priority = DataSlot.standalone();
+    private final BlockState blockState;
+    private final FakeInventory filter = new FakeInventory( StorageEnhancement.FILTER_SIZE, false );
+    private final StringVariableArrayReferenceHolder tagFilters = new StringVariableArrayReferenceHolder(';');
+    private final DataSlot filterType = DataSlot.standalone();
 
     private FakeInventory tagGetHelper = new FakeInventory( 1, false );
 
-    public static final int WHITELIST_PROPERTY_ID = 0;
-    public static final int FILTER_TYPE_PROPERTY_ID = 1;
+    public static final int IS_DEFAULT_STORE_PROPERTY_ID = 0;
+    public static final int PRIORITY_PROPERTY_ID = 1;
+    public static final int FILTER_TYPE_PROPERTY_ID = 2;
 
     public static final int FILTER_TAGS_STRING_PROPERTY_ID = 0;
 
@@ -44,19 +43,19 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
     public static final int TAG_FETCH_HELPER_SLOT_X = 1;
     public static final int TAG_FETCH_HELPER_SLOT_Y = 64;
 
-    public ProviderEnhancementSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity)
+    public StorageEnhancementSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity)
     {
         super(xPos, yPos);
-        addDataSlots(directionsValue);
-        addDataSlot(whiteListEnabled);
+        addDataSlot(isDefaultStore);
+        addDataSlot(priority);
         addDataSlot(filterType);
         trackStr(tagFilters);
         this.blockState = blockState;
 
         for(int i = 0; i < filter.getContainerSize(); ++i)
         {
-            int column = i % ProviderEnhancement.FILTER_NUM_COLUMNS;
-            int row = i / ProviderEnhancement.FILTER_NUM_COLUMNS;
+            int column = i % StorageEnhancement.FILTER_NUM_COLUMNS;
+            int row = i / StorageEnhancement.FILTER_NUM_COLUMNS;
             inventorySlots.add( new FakeSlot(filter, i, xPos + FILTER_SLOT_X + column * Client.SLOT_X_SPACING, yPos + FILTER_SLOT_Y + row * Client.SLOT_Y_SPACING));
         }
         inventorySlots.add( new FakeSlot(tagGetHelper, 0, xPos + TAG_FETCH_HELPER_SLOT_X, yPos + TAG_FETCH_HELPER_SLOT_Y));
@@ -74,29 +73,26 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
             isActive = active;
         }
 
-        boolean filterSlotsActive = filterType.get() == ProviderEnhancement.eFilterType.Item.ordinal();
+        boolean filterSlotsActive = filterType.get() == StorageEnhancement.eFilterType.Item.ordinal();
         for (int i = 0; i < filter.getContainerSize(); ++i)
         {
             Slot slot = inventorySlots.get(i);
             if (slot instanceof IActivatableSlot)
             {
-                ((IActivatableSlot) slot).SetActive(active && filterSlotsActive);
+                ((IActivatableSlot) slot).SetActive(active && filterSlotsActive && !GetIsDefaultStore());
             }
         }
-        GetTagFetchHelperSlot().SetActive(active && !filterSlotsActive);
+        GetTagFetchHelperSlot().SetActive(active && !filterSlotsActive && !GetIsDefaultStore());
     }
 
     @Override
     public void HandlePropertyUpdate(int propertyId, int value)
     {
-        switch(propertyId)
+        switch (propertyId)
         {
-            case WHITELIST_PROPERTY_ID:
-                whiteListEnabled.set(value);
-                break;
-            case FILTER_TYPE_PROPERTY_ID:
-                filterType.set(value);
-                break;
+            case IS_DEFAULT_STORE_PROPERTY_ID -> isDefaultStore.set(value);
+            case PRIORITY_PROPERTY_ID -> priority.set(value);
+            case FILTER_TYPE_PROPERTY_ID -> filterType.set(value);
         }
     }
 
@@ -105,9 +101,7 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
     {
         switch (propertyId)
         {
-            case FILTER_TAGS_STRING_PROPERTY_ID:
-                tagFilters.set(value);
-                break;
+            case FILTER_TAGS_STRING_PROPERTY_ID -> tagFilters.set(value);
         }
     }
 
@@ -123,24 +117,21 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
     {
         if(currentEnhancement != null)
         {
-            for(int i = 0; i < 6; ++i)
-            {
-                currentEnhancement.SetDirectionProvided(Direction.from3DDataValue(i), directionsValue.GetBool(i));
-            }
-            currentEnhancement.SetWhitelistEnabled(whiteListEnabled.get() != 0);
+            currentEnhancement.SetIsDefaultStore(isDefaultStore.get() != 0);
+            currentEnhancement.SetPriority(priority.get());
             for(int i = 0; i < filter.getContainerSize(); ++i)
             {
                 currentEnhancement.GetFilter().setItem(i, filter.getItem(i));
             }
             currentEnhancement.SetTagFilters( GetFilterTags() );
-            currentEnhancement.SetFilterType(ProviderEnhancement.eFilterType.values()[filterType.get()]);
+            currentEnhancement.SetFilterType(StorageEnhancement.eFilterType.values()[filterType.get()]);
         }
     }
 
     @Override
     public SubScreen CreateScreen(MultiScreen<?> parentScreen)
     {
-        return new ProviderSubScreen(this, parentScreen);
+        return new StorageSubScreen(this, parentScreen);
     }
 
     @Override
@@ -148,15 +139,12 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
     {
         if(enhancement != null)
         {
-            if(enhancement instanceof ProviderEnhancement)
+            if(enhancement instanceof StorageEnhancement)
             {
-                currentEnhancement = (ProviderEnhancement)enhancement;
-                for(int i = 0; i < 6; ++i)
-                {
-                    directionsValue.SetBool(i, currentEnhancement.IsDirectionSet(Direction.from3DDataValue(i)));
-                }
+                currentEnhancement = (StorageEnhancement)enhancement;
 
-                whiteListEnabled.set(currentEnhancement.IsWhitelistEnabled() ? 1 : 0);
+                isDefaultStore.set(currentEnhancement.IsDefaultStore() ? 1 : 0);
+                priority.set(currentEnhancement.GetPriority());
                 for(int i = 0; i < filter.getContainerSize(); ++i)
                 {
                     filter.setItem(i, currentEnhancement.GetFilter().getItem(i));
@@ -184,25 +172,19 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
         }
     }
 
-    public void SetDirectionProvided(Direction direction, boolean isSet)
-    {
-        directionsValue.SetBool( direction.ordinal(), isSet );
-    }
 
-    public BoolArray GetDirectionsProvided()
-    {
-        return directionsValue;
-    }
     public BlockState GetBlockState() { return blockState; }
 
-    public boolean GetWhitelistEnabled()
+    public boolean GetIsDefaultStore() { return isDefaultStore.get() != 0; }
+    public void SetIsDefaultStore(boolean enabled)
     {
-        return whiteListEnabled.get() != 0;
+        isDefaultStore.set(enabled ? 1 : 0);
+        //make sure to refresh this
+        SetActive(isActive);
     }
-    public void SetWhitelistEnabled(boolean enabled)
-    {
-        whiteListEnabled.set(enabled ? 1 : 0);
-    }
+
+    public int GetPriority() { return priority.get(); }
+    public void SetPriority(int prio) { priority.set(prio); }
 
     public FakeSlot GetTagFetchHelperSlot()
     {
@@ -220,12 +202,12 @@ public class ProviderEnhancementSubMenu extends SubMenu implements IEnhancementS
         return tagFilters.get();
     }
 
-    public ProviderEnhancement.eFilterType GetFilterType()
+    public StorageEnhancement.eFilterType GetFilterType()
     {
-        return ProviderEnhancement.eFilterType.values()[filterType.get()];
+        return StorageEnhancement.eFilterType.values()[filterType.get()];
     }
 
-    public void SetFilterType(ProviderEnhancement.eFilterType filterType)
+    public void SetFilterType(StorageEnhancement.eFilterType filterType)
     {
         this.filterType.set(filterType.ordinal());
         //make sure to refresh this

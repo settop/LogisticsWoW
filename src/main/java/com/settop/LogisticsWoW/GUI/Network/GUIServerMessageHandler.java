@@ -6,7 +6,7 @@ import net.minecraftforge.fml.LogicalSide;
 import com.settop.LogisticsWoW.GUI.BasicWispMenu;
 import com.settop.LogisticsWoW.GUI.MultiScreenMenu;
 import com.settop.LogisticsWoW.GUI.Network.Packets.*;
-import com.settop.LogisticsWoW.GUI.SubMenus.ProviderEnhancementSubMenu;
+import com.settop.LogisticsWoW.GUI.SubMenus.StorageEnhancementSubMenu;
 import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -112,12 +112,6 @@ public class GUIServerMessageHandler
         }
 
         SubMenu subContainer = subContainers.get(message.GetSubWindowID());
-        if(subContainer instanceof ProviderEnhancementSubMenu)
-        {
-            ProviderEnhancementSubMenu providerContainer = (ProviderEnhancementSubMenu)subContainer;
-            providerContainer.SetDirectionProvided(message.GetDirection(), message.GetIsSet());
-        }
-        else
         {
             LogisticsWoW.LOGGER.error("Unknown sub container type for SubContainerDirectionChange");
         }

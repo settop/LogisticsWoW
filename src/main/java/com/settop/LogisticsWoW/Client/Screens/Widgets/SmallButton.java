@@ -10,19 +10,24 @@ import net.minecraft.network.chat.TextComponent;
 
 public abstract class SmallButton extends Button
 {
-    public SmallButton(int x, int y, Component title)
+    private final float scale;
+
+    public SmallButton(int x, int y, int size, Component title)
     {
-        super(x, y, 8, 8, title, null);
+        super(x, y, size, size, title, null);
+        scale = size / 32.f;
     }
 
-    public SmallButton(int x, int y, Component title, Button.OnPress pressedAction)
+    public SmallButton(int x, int y, int size, Component title, Button.OnPress pressedAction)
     {
-        super(x, y, 8, 8, title, pressedAction);
+        super(x, y, size, size, title, pressedAction);
+        scale = size / 32.f;
     }
 
-    public SmallButton(int x, int y, Component title, Button.OnPress pressedAction, Button.OnTooltip onTooltip)
+    public SmallButton(int x, int y, int size, Component title, Button.OnPress pressedAction, Button.OnTooltip onTooltip)
     {
-        super(x, y, 8, 8, title, pressedAction, onTooltip);
+        super(x, y, size, size, title, pressedAction, onTooltip);
+        scale = size / 32.f;
     }
 
     @Override
@@ -30,7 +35,7 @@ public abstract class SmallButton extends Button
     {
         matrixStack.pushPose();
         matrixStack.translate(this.x, this.y, 0.f);
-        matrixStack.scale(0.25f, 0.25f, 1.f);
+        matrixStack.scale(scale, scale, 1.f);
 
         Minecraft minecraft = Minecraft.getInstance();
         RenderSystem.setShaderTexture(0, MultiScreen.GUI_PARTS_TEXTURE);

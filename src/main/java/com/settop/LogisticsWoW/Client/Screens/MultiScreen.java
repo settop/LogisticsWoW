@@ -1,5 +1,6 @@
 package com.settop.LogisticsWoW.Client.Screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.settop.LogisticsWoW.LogisticsWoW;
@@ -248,9 +249,7 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
             else
             {
                 //close the popup
-                topPopup.OnClose();
-                openPopups.remove(openPopups.size() - 1);
-                removeWidget(topPopup);
+                CloseTopPopup();
                 return true;
             }
         }
@@ -259,13 +258,73 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta)
     {
-        int slotID = hoveredSlot == null ? -1 : hoveredSlot.index;
-        if(getMenu().mouseScrolled(slotID, mouseX, mouseY, delta))
+        if(openPopups.isEmpty())
         {
-            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer( new CScrollWindowPacket(getMenu().containerId, slotID, (float)delta));
-            return true;
+            int slotID = hoveredSlot == null ? -1 : hoveredSlot.index;
+            if(getMenu().mouseScrolled(slotID, mouseX, mouseY, delta))
+            {
+                LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer( new CScrollWindowPacket(getMenu().containerId, slotID, (float)delta));
+                return true;
+            }
+            return super.mouseScrolled(mouseX, mouseY, delta);
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        else
+        {
+            ScreenPopup topPopup = openPopups.get(openPopups.size() - 1);
+            if(topPopup.isMouseOver(mouseX, mouseY))
+            {
+                return topPopup.mouseScrolled(mouseX, mouseY, delta);
+            }
+            return false;
+        }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
+    {
+        if(openPopups.isEmpty())
+        {
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        else
+        {
+            if(InputConstants.getKey(keyCode, scanCode).getValue() == InputConstants.KEY_ESCAPE)
+            {
+                CloseTopPopup();
+                return true;
+            }
+
+            ScreenPopup topPopup = openPopups.get(openPopups.size() - 1);
+            return topPopup.keyPressed(keyCode, scanCode, modifiers);
+        }
+    }
+
+    @Override
+    public boolean keyReleased(int keyCode, int scanCode, int modifiers)
+    {
+        if(openPopups.isEmpty())
+        {
+            return super.keyReleased(keyCode, scanCode, modifiers);
+        }
+        else
+        {
+            ScreenPopup topPopup = openPopups.get(openPopups.size() - 1);
+            return topPopup.keyReleased(keyCode, scanCode, modifiers);
+        }
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers)
+    {
+        if(openPopups.isEmpty())
+        {
+            return super.charTyped(codePoint, modifiers);
+        }
+        else
+        {
+            ScreenPopup topPopup = openPopups.get(openPopups.size() - 1);
+            return topPopup.charTyped(codePoint, modifiers);
+        }
     }
 
     public void OpenPopup(ScreenPopup popup)
@@ -274,6 +333,17 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
         openPopups.add(popup);
         addRenderableWidget(popup);
         popup.OnOpen();
+    }
 
+    public void CloseTopPopup()
+    {
+        if(openPopups.isEmpty())
+        {
+            return;
+        }
+        ScreenPopup topPopup = openPopups.get(openPopups.size() - 1);
+        topPopup.OnClose();
+        openPopups.remove(openPopups.size() - 1);
+        removeWidget(topPopup);
     }
 }
