@@ -7,6 +7,7 @@ import com.settop.LogisticsWoW.Client.Screens.SubScreens.SubScreen;
 import com.settop.LogisticsWoW.GUI.FakeSlot;
 import com.settop.LogisticsWoW.GUI.IActivatableSlot;
 import com.settop.LogisticsWoW.LogisticsWoW;
+import com.settop.LogisticsWoW.Utils.Constants;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.Utils.StringVariableArrayReferenceHolder;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
@@ -22,7 +23,6 @@ import java.util.ArrayList;
 public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSubMenu
 {
     private StorageEnhancement currentEnhancement;
-    private final DataSlot isDefaultStore = DataSlot.standalone();
     private final DataSlot priority = DataSlot.standalone();
     private final BlockState blockState;
     private final FakeInventory filter = new FakeInventory( StorageEnhancement.FILTER_SIZE, false );
@@ -31,9 +31,8 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
 
     private FakeInventory tagGetHelper = new FakeInventory( 1, false );
 
-    public static final int IS_DEFAULT_STORE_PROPERTY_ID = 0;
-    public static final int PRIORITY_PROPERTY_ID = 1;
-    public static final int FILTER_TYPE_PROPERTY_ID = 2;
+    public static final int PRIORITY_PROPERTY_ID = 0;
+    public static final int FILTER_TYPE_PROPERTY_ID = 1;
 
     public static final int FILTER_TAGS_STRING_PROPERTY_ID = 0;
 
@@ -46,7 +45,6 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     public StorageEnhancementSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity)
     {
         super(xPos, yPos);
-        addDataSlot(isDefaultStore);
         addDataSlot(priority);
         addDataSlot(filterType);
         trackStr(tagFilters);
@@ -73,16 +71,16 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
             isActive = active;
         }
 
-        boolean filterSlotsActive = filterType.get() == StorageEnhancement.eFilterType.Item.ordinal();
+        boolean filterSlotsActive = filterType.get() == Constants.eFilterType.Item.ordinal();
         for (int i = 0; i < filter.getContainerSize(); ++i)
         {
             Slot slot = inventorySlots.get(i);
             if (slot instanceof IActivatableSlot)
             {
-                ((IActivatableSlot) slot).SetActive(active && filterSlotsActive && !GetIsDefaultStore());
+                ((IActivatableSlot) slot).SetActive(active && filterSlotsActive);
             }
         }
-        GetTagFetchHelperSlot().SetActive(active && !filterSlotsActive && !GetIsDefaultStore());
+        GetTagFetchHelperSlot().SetActive(active && !filterSlotsActive);
     }
 
     @Override
@@ -90,7 +88,6 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     {
         switch (propertyId)
         {
-            case IS_DEFAULT_STORE_PROPERTY_ID -> isDefaultStore.set(value);
             case PRIORITY_PROPERTY_ID -> priority.set(value);
             case FILTER_TYPE_PROPERTY_ID -> filterType.set(value);
         }
@@ -117,14 +114,13 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     {
         if(currentEnhancement != null)
         {
-            currentEnhancement.SetIsDefaultStore(isDefaultStore.get() != 0);
             currentEnhancement.SetPriority(priority.get());
             for(int i = 0; i < filter.getContainerSize(); ++i)
             {
                 currentEnhancement.GetFilter().setItem(i, filter.getItem(i));
             }
             currentEnhancement.SetTagFilters( GetFilterTags() );
-            currentEnhancement.SetFilterType(StorageEnhancement.eFilterType.values()[filterType.get()]);
+            currentEnhancement.SetFilterType(Constants.eFilterType.values()[filterType.get()]);
         }
     }
 
@@ -143,7 +139,6 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
             {
                 currentEnhancement = (StorageEnhancement)enhancement;
 
-                isDefaultStore.set(currentEnhancement.IsDefaultStore() ? 1 : 0);
                 priority.set(currentEnhancement.GetPriority());
                 for(int i = 0; i < filter.getContainerSize(); ++i)
                 {
@@ -175,14 +170,6 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
 
     public BlockState GetBlockState() { return blockState; }
 
-    public boolean GetIsDefaultStore() { return isDefaultStore.get() != 0; }
-    public void SetIsDefaultStore(boolean enabled)
-    {
-        isDefaultStore.set(enabled ? 1 : 0);
-        //make sure to refresh this
-        SetActive(isActive);
-    }
-
     public int GetPriority() { return priority.get(); }
     public void SetPriority(int prio) { priority.set(prio); }
 
@@ -202,12 +189,12 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
         return tagFilters.get();
     }
 
-    public StorageEnhancement.eFilterType GetFilterType()
+    public Constants.eFilterType GetFilterType()
     {
-        return StorageEnhancement.eFilterType.values()[filterType.get()];
+        return Constants.eFilterType.values()[filterType.get()];
     }
 
-    public void SetFilterType(StorageEnhancement.eFilterType filterType)
+    public void SetFilterType(Constants.eFilterType filterType)
     {
         this.filterType.set(filterType.ordinal());
         //make sure to refresh this

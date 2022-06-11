@@ -14,7 +14,7 @@ public abstract class PriorityPopup extends ScreenPopup
     {
         public PrioritySetter(Font font, int x, int y, int width, int height)
         {
-            super(font, true, x, y, width, height);
+            super(font, true, x, y, width, height, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
         }
 
         @Override

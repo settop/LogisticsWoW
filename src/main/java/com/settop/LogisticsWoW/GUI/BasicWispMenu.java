@@ -158,11 +158,11 @@ public class BasicWispMenu extends MultiScreenMenu implements BasicWispContents.
     public void removed(@NotNull Player playerIn)
     {
         wispContents.SetListener(null);
+        super.removed(playerIn);
         if(parentWisp != null)
         {
             parentWisp.UpdateFromContents();
         }
-        super.removed(playerIn);
     }
 
     @Override

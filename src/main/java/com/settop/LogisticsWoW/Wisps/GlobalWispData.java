@@ -40,7 +40,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
 import java.util.*;
-import java.util.stream.Stream;
 
 @Mod.EventBusSubscriber( modid = LogisticsWoW.MOD_ID)
 public class GlobalWispData
@@ -104,7 +103,7 @@ public class GlobalWispData
         {
             if(!existingWisp.GetType().equals(type))
             {
-                LogisticsWoW.LOGGER.error("Getting a wisp, but it is of the wrong type. Existing type: %s Expected type: %s", existingWisp.GetType(), type);
+                LogisticsWoW.LOGGER.error("Getting a wisp, but it is of the wrong type. Existing type: {} Expected type: {}", existingWisp.GetType(), type);
             }
             return new Tuple<> (existingWisp, false);
         }
@@ -117,6 +116,7 @@ public class GlobalWispData
         ChunkWisps chunkWisps = dimData.EnsureChunkWisps(inPos);
         chunkWisps.unregisteredNodes.add(newWisp);
         TryAndConnectNodeToANetwork(inWorld, newWisp);
+        newWisp.SetConnectedBlockEntity(inWorld.getBlockEntity(inPos));
 
         inWorld.getChunk(inPos).setUnsaved(true);
 
@@ -548,7 +548,7 @@ public class GlobalWispData
                 ChunkWisps chunkWisps = dimData.chunkData.get(loadingData.chunkPos);
                 if(chunkWisps != null)
                 {
-                    chunkWisps.CheckWispsValid(chunk);
+                    chunkWisps.OnChunkFinishLoad(chunk);
                     if(chunkWisps.ClearUnclaimed())
                     {
                         chunk.setUnsaved(true);
@@ -570,7 +570,7 @@ public class GlobalWispData
                 {
                     for(WispNetwork wispNetwork : otherDimData.wispNetworks)
                     {
-                        wispNetwork.CheckWispsValid(chunk);
+                        wispNetwork.OnChunkFinishLoad(chunk);
                         Tuple<Boolean, HashMap<ResourceLocation,ArrayList<WispNode>>> unclaimedAndOrphans = wispNetwork.ClearUnclaimed(tickDim, loadingData.chunkPos);
                         if(unclaimedAndOrphans.getA())
                         {

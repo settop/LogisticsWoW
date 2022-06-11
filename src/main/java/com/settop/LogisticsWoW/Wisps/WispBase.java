@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.extensions.IForgeLevel;
 
 import java.lang.ref.WeakReference;
@@ -56,5 +57,6 @@ public abstract class WispBase extends WispNode implements MenuProvider
     public abstract void DropItemStackIntoWorld(LevelAccessor world);
     public abstract void InitFromTagData(CompoundTag tagData);
     public abstract void UpdateFromContents();
+    public abstract void SetConnectedBlockEntity(BlockEntity blockEntity);
     public abstract void ContainerExtraDataWriter(FriendlyByteBuf packetBuffer);
 }

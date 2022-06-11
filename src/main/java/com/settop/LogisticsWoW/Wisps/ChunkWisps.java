@@ -4,6 +4,7 @@ import com.settop.LogisticsWoW.LogisticsWoW;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 import java.util.ArrayList;
@@ -18,15 +19,18 @@ public class ChunkWisps
     //nodes and wisps are stored together
     public ArrayList<WispNode> unregisteredNodes = new ArrayList<>();
 
-    public void CheckWispsValid(LevelChunk chunk)
+    public void OnChunkFinishLoad(LevelChunk chunk)
     {
         for(WispNode node : unregisteredNodes)
         {
             if(node instanceof WispBase)
             {
-                if(chunk.getBlockEntity(node.GetPos()) != null)
+                BlockEntity blockEntity = chunk.getBlockEntity(node.GetPos());
+                if(blockEntity != null)
                 {
                     node.claimed = true;
+                    WispBase wisp = (WispBase)node;
+                    wisp.SetConnectedBlockEntity(blockEntity);
                 }
             }
         }

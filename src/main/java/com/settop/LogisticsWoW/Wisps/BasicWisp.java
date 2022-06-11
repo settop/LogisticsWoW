@@ -1,10 +1,10 @@
 package com.settop.LogisticsWoW.Wisps;
 
 import com.settop.LogisticsWoW.GUI.BasicWispMenu;
-import com.settop.LogisticsWoW.GUI.MultiScreenMenu;
 import com.settop.LogisticsWoW.Items.WispEnhancementItem;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Utils;
+import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -18,16 +18,16 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
-import net.minecraftforge.common.extensions.IForgeLevel;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 
 public class BasicWisp extends WispBase
 {
     private final BasicWispContents contents = new BasicWispContents(2);
     private ArrayList<IEnhancement> enhancements;
+    private BlockEntity blockEntity;
 
 
     public BasicWisp()
@@ -107,10 +107,48 @@ public class BasicWisp extends WispBase
             {
                 IEnhancement newEnhancement = contentsItem.getCapability(LogisticsWoW.Capabilities.CAPABILITY_ENHANCEMENT).resolve().get();
                 enhancements.add(newEnhancement);
+                if(IsConnectedToANetwork())
+                    newEnhancement.Setup(this, blockEntity);
             }
             else
             {
                 LogisticsWoW.LOGGER.warn("Unrecognised wisp enhancement");
+            }
+        }
+    }
+
+    @Override
+    public void ConnectToWispNetwork(WispNetwork wispNetwork)
+    {
+        super.ConnectToWispNetwork(wispNetwork);
+        if(blockEntity != null)
+        {
+            for (IEnhancement enhancement : enhancements)
+            {
+                enhancement.Setup(this, blockEntity);
+            }
+        }
+    }
+
+    @Override
+    public void DisconnectFromWispNetwork(WispNetwork wispNetwork)
+    {
+        super.DisconnectFromWispNetwork(wispNetwork);
+        for (IEnhancement enhancement : enhancements)
+        {
+            enhancement.Setup(this, null);
+        }
+    }
+
+    @Override
+    public void SetConnectedBlockEntity(BlockEntity blockEntity)
+    {
+        this.blockEntity = blockEntity;
+        if(IsConnectedToANetwork())
+        {
+            for (IEnhancement enhancement : enhancements)
+            {
+                enhancement.Setup(this, blockEntity);
             }
         }
     }

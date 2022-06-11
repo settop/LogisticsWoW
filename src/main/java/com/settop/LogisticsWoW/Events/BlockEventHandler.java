@@ -5,7 +5,6 @@ import com.settop.LogisticsWoW.BlockEntities.WispCoreBlockEntity;
 import com.settop.LogisticsWoW.Blocks.WispCore;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import net.minecraft.core.BlockPos;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -32,7 +31,7 @@ public class BlockEventHandler
                     //check for a wisp core tile entity
                     BlockPos blockPos = blockPlaced.getPos().offset(x, y, z);
                     BlockEntity tileEntity = blockPlaced.getWorld().getBlockEntity(blockPos);
-                    if(tileEntity != null && tileEntity instanceof WispCoreBlockEntity)
+                    if(tileEntity instanceof WispCoreBlockEntity)
                     {
                         WispCoreBlockEntity coreTileEntity = (WispCoreBlockEntity)tileEntity;
                         coreTileEntity.CheckMultiBlockForm();
@@ -56,29 +55,35 @@ public class BlockEventHandler
             return;
         }
 
-        for(int x = -1; x <=1; ++x)
+        try
+        {
+            for(int x = -1; x <=1; ++x)
             for(int y = -1; y <=1; ++y)
-                for(int z = -1; z <=1; ++z)
+            for(int z = -1; z <=1; ++z)
+            {
+                if(x == 0 && y == 0 && z == 0) continue;
+                //check for a wisp core tile entity
+                BlockPos blockPos = blockBroken.getPos().offset(x, y, z);
+                WispCoreBlockEntity tileEntity = (WispCoreBlockEntity)blockBroken.getWorld().getBlockEntity(blockPos);
+                if(tileEntity != null)
                 {
-                    if(x == 0 && y == 0 && z == 0) continue;
-                    //check for a wisp core tile entity
-                    BlockPos blockPos = blockBroken.getPos().offset(x, y, z);
-                    WispCoreBlockEntity tileEntity = (WispCoreBlockEntity)blockBroken.getWorld().getBlockEntity(blockPos);
-                    if(tileEntity != null)
+                    if(coreType == WispCore.WispCoreType.RING)
                     {
-                        if(coreType == WispCore.WispCoreType.RING)
-                        {
-                            BlockState dropBlock = tileEntity.BreakMultiBlock(blockBroken.getPos());
-                            Block.dropResources(dropBlock, (Level) blockBroken.getWorld(), blockBroken.getPos(), null, blockBroken.getPlayer(), blockBroken.getPlayer().getItemInHand(InteractionHand.MAIN_HAND));
-                        }
-                        else
-                        {
-                            //do nothing for the 'air' block
-                            blockBroken.setCanceled(true);
-                        }
-                        return;
+                        BlockState dropBlock = tileEntity.BreakMultiBlock(blockBroken.getPos());
+                        Block.dropResources(dropBlock, (Level) blockBroken.getWorld(), blockBroken.getPos(), null, blockBroken.getPlayer(), blockBroken.getPlayer().getItemInHand(InteractionHand.MAIN_HAND));
                     }
+                    else
+                    {
+                        //do nothing for the 'air' block
+                        blockBroken.setCanceled(true);
+                    }
+                    return;
                 }
-
+            }
+        }
+        catch(Exception ex)
+        {
+            LogisticsWoW.LOGGER.error("Error during OnWispCoreRingBreak. Message: {}", ex.getMessage());
+        }
     }
 }

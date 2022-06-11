@@ -176,6 +176,7 @@ public class WispCoreBlockEntity extends BlockEntity
 
     public BlockState BreakMultiBlock(BlockPos brokenPos)
     {
+
         BlockPos myBlockPos = getBlockPos();
         WispCore coreBlock = (WispCore)LogisticsWoW.Blocks.WISP_CORE.get();
         BlockPos offset = brokenPos.subtract(myBlockPos);

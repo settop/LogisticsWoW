@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix4f;
 import com.mojang.math.Vector3f;
+import com.settop.LogisticsWoW.LogisticsWoW;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -11,10 +12,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Tuple;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import com.settop.LogisticsWoW.Utils.Utils;
@@ -23,7 +25,6 @@ import com.settop.LogisticsWoW.Wisps.WispFactory;
 import com.settop.LogisticsWoW.Wisps.WispNode;
 import net.minecraftforge.client.event.RenderLevelLastEvent;
 import net.minecraftforge.event.TickEvent;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,21 +34,6 @@ import java.util.stream.Stream;
 
 public class WispNetwork
 {
-    private static class ItemSources
-    {
-        private int countCache = 0;
-        private boolean craftable = false;
-        private boolean isDirty = false;
-
-        private class WispItemSource
-        {
-            public WeakReference<WispBase> sourceWisp;
-            public int wispCountCache = 0;
-            public boolean wispCraftCache = false;
-        }
-
-        private ArrayList<WispItemSource> itemSources;
-    }
 
     public static class ChunkData
     {
@@ -93,6 +79,8 @@ public class WispNetwork
 
     private final WispTaskManager taskManager = new WispTaskManager();
     private int tickTime = 0;
+
+    private final WispNetworkItemManagement itemMangement = new WispNetworkItemManagement();
 
     private static ResourceLocation GetDim(Level level) { return level.dimension().location(); }
 
@@ -212,7 +200,7 @@ public class WispNetwork
 
     public WispNode GetNode(Level world, BlockPos inPos){ return GetNode(GetDim(world), inPos); }
 
-    public void CheckWispsValid(LevelChunk chunk)
+    public void OnChunkFinishLoad(LevelChunk chunk)
     {
         ChunkData chunkData = GetChunkData(GetDim(Objects.requireNonNull(chunk.getWorldForge())), chunk.getPos());
         if(chunkData == null)
@@ -221,9 +209,11 @@ public class WispNetwork
         }
         chunkData.GetWisps().forEach(wisp->
         {
-            if(chunk.getBlockEntity(wisp.GetPos()) != null)
+            BlockEntity blockEntity = chunk.getBlockEntity(wisp.GetPos());
+            if( blockEntity!= null)
             {
                 wisp.claimed = true;
+                wisp.SetConnectedBlockEntity(blockEntity);
             }
         });
     }
@@ -680,7 +670,19 @@ public class WispNetwork
     {
         ++tickTime;
         taskManager.Advance(tickEvent, this, tickTime);
+        itemMangement.Tick();
     }
+
+    public void StartTask(WispTask task)
+    {
+        taskManager.StartTask(task, this, tickTime);
+    }
+
+    public WispNetworkItemManagement GetItemManagement()
+    {
+        return itemMangement;
+    }
+
 
     public static WispNetwork CreateAndRead(ResourceLocation dim, BlockPos pos, CompoundTag nbt)
     {

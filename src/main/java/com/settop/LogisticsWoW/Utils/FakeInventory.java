@@ -7,12 +7,13 @@ import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 public class FakeInventory implements Container
 {
     public static final int MAX_STACK = 1 << 30;
 
-    private NonNullList<ItemStack> stacks;
+    private final NonNullList<ItemStack> stacks;
     public final boolean includeCounts;
 
     public FakeInventory(int size, boolean includeCounts)
@@ -41,7 +42,7 @@ public class FakeInventory implements Container
     }
 
     @Override
-    public ItemStack getItem(int index)
+    public @NotNull ItemStack getItem(int index)
     {
         if(index < stacks.size())
         {
@@ -51,7 +52,7 @@ public class FakeInventory implements Container
     }
 
     @Override
-    public ItemStack removeItem(int index, int count)
+    public @NotNull ItemStack removeItem(int index, int count)
     {
         if(index < stacks.size())
         {
@@ -70,7 +71,7 @@ public class FakeInventory implements Container
     }
 
     @Override
-    public ItemStack removeItemNoUpdate(int index)
+    public @NotNull ItemStack removeItemNoUpdate(int index)
     {
         if(index < stacks.size())
         {
@@ -80,7 +81,7 @@ public class FakeInventory implements Container
     }
 
     @Override
-    public void setItem(int index, ItemStack stack)
+    public void setItem(int index, @NotNull ItemStack stack)
     {
         if(index < stacks.size())
         {
@@ -99,7 +100,7 @@ public class FakeInventory implements Container
     }
 
     @Override
-    public boolean stillValid(Player player)
+    public boolean stillValid(@NotNull Player player)
     {
         return true;
     }

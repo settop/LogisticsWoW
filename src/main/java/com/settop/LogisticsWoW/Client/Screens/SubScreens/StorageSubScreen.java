@@ -7,6 +7,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.settop.LogisticsWoW.Client.Screens.Popups.PriorityPopup;
 import com.settop.LogisticsWoW.Client.Screens.Widgets.NumberSpinner;
 import com.settop.LogisticsWoW.LogisticsWoW;
+import com.settop.LogisticsWoW.Utils.Constants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.narration.NarratedElementType;
@@ -87,39 +88,6 @@ public class StorageSubScreen extends SubScreen
         }
     }
 
-    public class IsDefaultToggle extends SmallButton
-    {
-        public IsDefaultToggle(int x, int y)
-        {
-            super(x, y, 16, new TextComponent(""));
-        }
-
-        @Override
-        public void onPress()
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-            boolean newEnabled = !providerContainer.GetIsDefaultStore();
-            providerContainer.SetIsDefaultStore(newEnabled);
-
-            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.IS_DEFAULT_STORE_PROPERTY_ID,  newEnabled ? 1 : 0));
-
-            filterTypeCycle.active = filterTypeCycle.visible = !providerContainer.GetIsDefaultStore();
-            tagSelection.active = tagSelection.visible = !providerContainer.GetIsDefaultStore();
-        }
-
-        @Override
-        public void renderToolTip(PoseStack matrixStack, int mouseX, int mouseY)
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-            GetParentScreen().renderTooltip(matrixStack, new TranslatableComponent(providerContainer.GetIsDefaultStore() ? "logwow.default_store" : "logwow.non_default_store"), mouseX, mouseY);
-        }
-
-        @Override
-        public void RenderOverlay(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
-        {
-        }
-    }
-
     public class FilterTypeCycle extends SmallButton
     {
         public FilterTypeCycle(int x, int y)
@@ -133,11 +101,11 @@ public class StorageSubScreen extends SubScreen
             StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
 
             int nextValue = providerContainer.GetFilterType().ordinal() + 1;
-            if(nextValue >= StorageEnhancement.eFilterType.values().length)
+            if(nextValue >= Constants.eFilterType.values().length)
             {
                 nextValue = 0;
             }
-            providerContainer.SetFilterType(StorageEnhancement.eFilterType.values()[nextValue]);
+            providerContainer.SetFilterType(Constants.eFilterType.values()[nextValue]);
             LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.FILTER_TYPE_PROPERTY_ID,  nextValue));
         }
 
@@ -149,6 +117,7 @@ public class StorageSubScreen extends SubScreen
             {
                 case Item -> new TranslatableComponent("logwow.item_filter");
                 case Tag -> new TranslatableComponent("logwow.tag_filter");
+                case Default -> new TranslatableComponent("logwow.default_store");
             };
             GetParentScreen().renderTooltip(matrixStack, text, mouseX, mouseY);
         }
@@ -161,6 +130,7 @@ public class StorageSubScreen extends SubScreen
             {
                 case Item -> Items.IRON_INGOT;
                 case Tag -> Items.NAME_TAG;
+                case Default -> Items.AIR;
             };
             ItemStack itemStack = new ItemStack(renderItem);
             ItemRenderer itemRenderer = Minecraft.getInstance().getItemRenderer();
@@ -228,7 +198,6 @@ public class StorageSubScreen extends SubScreen
 
     private PriorityPopup priorityPopup;
     private PriorityButton priorityButton;
-    private IsDefaultToggle isDefaultToggle;
     private FilterTypeCycle filterTypeCycle;
     private FilterTags tagSelection;
 
@@ -274,25 +243,24 @@ public class StorageSubScreen extends SubScreen
         };
 
         priorityButton = AddWidget(new PriorityButton(guiLeft + xPos, guiTop + yPos ));
-        isDefaultToggle = AddWidget(new IsDefaultToggle(guiLeft + xPos, guiTop + yPos + 16));
-        filterTypeCycle = AddWidget(new FilterTypeCycle(guiLeft + xPos, guiTop + yPos + 32));
+        filterTypeCycle = AddWidget(new FilterTypeCycle(guiLeft + xPos, guiTop + yPos + 16));
     }
 
     @Override
     public void renderBg(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY)
     {
         StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-        if(!providerContainer.GetIsDefaultStore())
+
+        if(providerContainer.GetFilterType() == Constants.eFilterType.Item)
         {
             for(int r = 0; r < StorageEnhancement.FILTER_NUM_ROWS; ++r)
             {
                 MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.FILTER_SLOT_X, guiTop + StorageEnhancementSubMenu.FILTER_SLOT_Y + r * Client.SLOT_Y_SPACING, getBlitOffset(), StorageEnhancement.FILTER_NUM_COLUMNS);
             }
-
-            if(providerContainer.GetFilterType() == StorageEnhancement.eFilterType.Tag)
-            {
-                MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.TAG_FETCH_HELPER_SLOT_X, guiTop + StorageEnhancementSubMenu.TAG_FETCH_HELPER_SLOT_Y, getBlitOffset(), 1);
-            }
+        }
+        else if(providerContainer.GetFilterType() == Constants.eFilterType.Tag)
+        {
+            MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.TAG_FETCH_HELPER_SLOT_X, guiTop + StorageEnhancementSubMenu.TAG_FETCH_HELPER_SLOT_Y, getBlitOffset(), 1);
         }
     }
 
@@ -310,10 +278,9 @@ public class StorageSubScreen extends SubScreen
             this.active = active;
 
             priorityButton.active = priorityButton.visible = active;
-            isDefaultToggle.active = isDefaultToggle.visible = active;
-            filterTypeCycle.active = filterTypeCycle.visible = active && !providerContainer.GetIsDefaultStore();
+            filterTypeCycle.active = filterTypeCycle.visible = active;
         }
 
-        tagSelection.active = tagSelection.visible = active && (providerContainer.GetFilterType() == StorageEnhancement.eFilterType.Tag) && !providerContainer.GetIsDefaultStore();
+        tagSelection.active = tagSelection.visible = active && (providerContainer.GetFilterType() == Constants.eFilterType.Tag);
     }
 }
