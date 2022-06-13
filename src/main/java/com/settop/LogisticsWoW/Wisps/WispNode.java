@@ -17,6 +17,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 
 public class WispNode
@@ -48,6 +49,13 @@ public class WispNode
         public final BlockPos nodePos;
     }
 
+    public static class NextPathStep
+    {
+        public WispNode node;
+        public float distToNode;
+        public float distToDestination;
+    }
+
     private BlockPos pos;
     public int autoConnectRange = 0;
     public ArrayList<Connection> connectedNodes;
@@ -56,6 +64,9 @@ public class WispNode
     //networkConnection points to the node it is connected to the network with
     public WispNetwork connectedNetwork;
     public Connection networkConnectionNode;//will be null if connected directly to the network
+
+    //a map from a destination node, to the next node in the path towards that node
+    public final HashMap<WispNode, NextPathStep> cachedPaths = new HashMap<>();
 
     protected WispNode()
     {

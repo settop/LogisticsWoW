@@ -1,5 +1,6 @@
-package com.settop.LogisticsWoW.WispNetwork;
+package com.settop.LogisticsWoW.WispNetwork.Tasks;
 
+import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import net.minecraftforge.event.TickEvent;
 
 import javax.annotation.Nonnull;

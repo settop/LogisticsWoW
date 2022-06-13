@@ -5,6 +5,7 @@ import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
 import com.settop.LogisticsWoW.Utils.Constants;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.WispNetwork.*;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
 import com.settop.LogisticsWoW.Wisps.WispBase;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -210,6 +211,47 @@ public class StorageEnhancement implements IEnhancement
         }
 
         @Override
+        public ItemStack Insert(ItemStack stack)
+        {
+            assert IsValid();
+            if(!connectedItemHandler.isPresent())
+            {
+                return null;
+            }
+            Optional<IItemHandler> itemHandlerOptional = connectedItemHandler.resolve();
+            if(itemHandlerOptional.isEmpty())
+            {
+                return null;
+            }
+
+            IItemHandler iItemHandler = itemHandlerOptional.get();
+            for(int i = 0; i < iItemHandler.getSlots(); ++i)
+            {
+                stack = iItemHandler.insertItem(i, stack, false);
+                if(stack.isEmpty())
+                {
+                    break;
+                }
+            }
+            return stack;
+        }
+
+        @Override
+        public ItemStack ReservedInsert(Reservation reservation, ItemStack stack)
+        {
+            ItemReservation itemReservation = itemReservations.get(stack.getItem());
+            if(itemReservation != null)
+            {
+                if(itemReservation.reservations.remove(reservation))
+                {
+                    itemReservation.totalReservations -= reservation.reservationSize;
+                }
+            }
+            reservation.SetInvalid();
+            return Insert(stack);
+        }
+
+        @Override
         public WispBase GetAttachedWisp()
         {
             assert IsValid();
@@ -369,7 +411,7 @@ public class StorageEnhancement implements IEnhancement
     public void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn)
     {
         tooltip.add(new TranslatableComponent("logwow.priority").append(String.format(": %d", priority)));
-        switch (GetEffectiveFilterType())
+        switch (CalculateEffectiveFilterType())
         {
             case Item:
             {

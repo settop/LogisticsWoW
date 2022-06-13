@@ -5,6 +5,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix4f;
 import com.mojang.math.Vector3f;
 import com.settop.LogisticsWoW.LogisticsWoW;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -12,7 +14,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Tuple;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -659,6 +660,46 @@ public class WispNetwork
         }
     }
 
+    public WispNode GetClosestNodeToPos(ResourceLocation dim, BlockPos pos, int maxRange)
+    {
+        DimensionData dimData = GetDimensionData(dim);
+        if(dimData == null)
+        {
+            return null;
+        }
+
+        WispNode bestNode = null;
+        int bestNodeRange = Integer.MAX_VALUE;
+
+        BlockPos maxRangeVec = new BlockPos(maxRange, 0, maxRange);
+        ChunkPos chunkMinPos = Utils.GetChunkPos(pos.subtract(maxRangeVec));
+        ChunkPos chunkMaxPos = Utils.GetChunkPos(pos.offset(maxRangeVec));
+        for(int x = chunkMinPos.x; x <= chunkMaxPos.x; ++x)
+        for(int z = chunkMinPos.z; z <= chunkMaxPos.z; ++z)
+        {
+            ChunkData chunkData = dimData.GetChunkData(x, z);
+            if(chunkData == null)
+            {
+                continue;
+            }
+            for(WispNode node : chunkData.nodes)
+            {
+                if(!node.CanBeUsedAsNetworkConnection())
+                {
+                    continue;
+                }
+                BlockPos offset = node.GetPos().subtract(pos);
+                int distance = Math.abs(offset.getX()) + Math.abs(offset.getY()) + Math.abs(offset.getZ());
+                if(distance < bestNodeRange)
+                {
+                    bestNode = node;
+                    bestNodeRange = distance;
+                }
+            }
+        }
+        return bestNode;
+    }
+
     public BlockPos GetClosestPos(BlockPos inPos)
     {
         BlockPos offset = inPos.subtract(networkPos);
@@ -683,6 +724,142 @@ public class WispNetwork
         return itemMangement;
     }
 
+    private @Nonnull WispNode.NextPathStep GeneratePath(WispNode start, WispNode end)
+    {
+        WispNode.NextPathStep cachedPath = start.cachedPaths.get(end);
+        if(cachedPath != null)
+        {
+            return cachedPath;
+        }
+
+        class PathNode implements Comparable<PathNode>
+        {
+            float distanceTraveled = Float.MAX_VALUE;
+            float estimatedScore = Float.MAX_VALUE;
+            WispNode node;
+            PathNode previousNode;
+
+            @Override
+            public int compareTo(PathNode other)
+            {
+                return Float.compare(this.estimatedScore, other.estimatedScore);
+            }
+        }
+
+        final HashMap<WispNode, PathNode> visitedNodes = new HashMap<>();
+        final PriorityQueue<PathNode> nodesToVisit = new PriorityQueue<>();
+
+        PathNode startNode = new PathNode();
+        startNode.distanceTraveled = 0.f;
+        startNode.estimatedScore = (float)Math.sqrt(start.GetPos().distSqr(end.GetPos()));
+        startNode.node = start;
+        startNode.previousNode = null;
+        visitedNodes.put(start, startNode);
+        nodesToVisit.add(startNode);
+
+        while(!nodesToVisit.isEmpty())
+        {
+            PathNode currentNode = nodesToVisit.poll();
+            WispNode.NextPathStep currentNodeCachedPath = currentNode.node.cachedPaths.get(end);
+            if(currentNode.node == end || currentNodeCachedPath != null)
+            {
+                //done
+                //either reached out goal, or reached a node with a cached path to the goal
+                //reconstruct the path by going backwards from this node until we reach the start
+
+                //now go through and cache the path into the nodes
+                float lengthToDestination = currentNode.node == end ? 0.f : currentNodeCachedPath.distToDestination;
+                for(PathNode pathNode = currentNode; pathNode.previousNode != null; pathNode = pathNode.previousNode)
+                {
+                    float connectionLength = pathNode.distanceTraveled - pathNode.previousNode.distanceTraveled;
+                    lengthToDestination += connectionLength;
+
+                    WispNode.NextPathStep previousCachedPathStep = new WispNode.NextPathStep();
+                    previousCachedPathStep.node = pathNode.node;
+                    previousCachedPathStep.distToDestination = lengthToDestination;
+                    previousCachedPathStep.distToNode = connectionLength;
+                    pathNode.previousNode.node.cachedPaths.put(end, previousCachedPathStep);
+                }
+
+                WispNode.NextPathStep startNextPathStep = start.cachedPaths.get(end);
+                assert startNextPathStep != null;
+                return startNextPathStep;
+            }
+            for(WispNode.Connection connection : currentNode.node.connectedNodes)
+            {
+                WispNode otherNode = connection.node.get();
+                assert otherNode != null;
+                float connectionLength = (float)Math.sqrt(currentNode.node.GetPos().distSqr(otherNode.GetPos()));
+                float totalDistanceTraveled = currentNode.distanceTraveled + connectionLength;
+                PathNode visitedNodeInfo = visitedNodes.computeIfAbsent(otherNode,l-> new PathNode());
+                boolean preExisting = visitedNodeInfo.node != null;
+                visitedNodeInfo.node = otherNode;
+                if(totalDistanceTraveled < visitedNodeInfo.distanceTraveled)
+                {
+                    if(preExisting)
+                    {
+                        nodesToVisit.remove(visitedNodeInfo);
+                    }
+                    visitedNodeInfo.previousNode = currentNode;
+                    visitedNodeInfo.distanceTraveled = totalDistanceTraveled;
+
+                    WispNode.NextPathStep otherNodeCachedPath = otherNode.cachedPaths.get(end);
+                    if(otherNodeCachedPath != null)
+                    {
+                        visitedNodeInfo.estimatedScore = visitedNodeInfo.distanceTraveled + otherNodeCachedPath.distToDestination;
+                    }
+                    else
+                    {
+                        float estimatedDistanceToEnd = (float)Math.sqrt(otherNode.GetPos().distSqr(end.GetPos()));
+                        visitedNodeInfo.estimatedScore = visitedNodeInfo.distanceTraveled + estimatedDistanceToEnd;
+                    }
+
+                    nodesToVisit.add(visitedNodeInfo);
+                }
+            }
+        }
+        //no path :(
+        LogisticsWoW.LOGGER.error("Failed to find path from node {} to {}", start.GetPos().toString(), end.GetPos().toString());
+        throw new RuntimeException("No possible path between nodes in network");
+    }
+
+    public @Nonnull WispNode.NextPathStep GetNextPathStep(WispNode start, WispNode end)
+    {
+        assert start.connectedNetwork == this;
+        assert end.connectedNetwork == this;
+        if(end.CanBeUsedAsNetworkConnection())
+        {
+            return GeneratePath(start, end);
+        }
+        else
+        {
+            WispNode.NextPathStep bestPathStep = null;
+            //don't add the end directly as a path to help cut down the number of cached paths
+            //most of the time a node of this type is only going to be connected to a single node
+            //or nodes that are close to each other in the network anyway
+            assert !end.connectedNodes.isEmpty();
+            for(WispNode.Connection connection : end.connectedNodes)
+            {
+                WispNode otherNode = connection.node.get();
+                assert otherNode != null;
+                if(otherNode == start)
+                {
+                    //we are connected directly to the end
+                    WispNode.NextPathStep tempNextStep = new WispNode.NextPathStep();
+                    tempNextStep.distToDestination = (float)Math.sqrt(start.GetPos().distSqr(end.GetPos()));
+                    tempNextStep.distToNode = tempNextStep.distToDestination;
+                    tempNextStep.node = end;
+                    return tempNextStep;
+                }
+                WispNode.NextPathStep path = GeneratePath(start, otherNode);
+                if(bestPathStep == null || path.distToDestination < bestPathStep.distToDestination)
+                {
+                    bestPathStep = path;
+                }
+            }
+            return bestPathStep;
+        }
+    }
 
     public static WispNetwork CreateAndRead(ResourceLocation dim, BlockPos pos, CompoundTag nbt)
     {

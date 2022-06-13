@@ -26,5 +26,7 @@ public abstract class ItemSink extends Invalidable
 
     //returns the reservation or null is no reservation was made
     abstract public Reservation ReserveInsert(ItemStack stack);
+    abstract public ItemStack Insert(ItemStack stack);
+    abstract public ItemStack ReservedInsert(Reservation reservation, ItemStack stack);
     abstract public WispBase GetAttachedWisp();
 }

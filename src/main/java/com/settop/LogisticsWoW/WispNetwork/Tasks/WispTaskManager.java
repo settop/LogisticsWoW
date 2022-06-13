@@ -1,5 +1,7 @@
-package com.settop.LogisticsWoW.WispNetwork;
+package com.settop.LogisticsWoW.WispNetwork.Tasks;
 
+import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
+import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import net.minecraftforge.event.TickEvent;
 import org.jetbrains.annotations.NotNull;
 
