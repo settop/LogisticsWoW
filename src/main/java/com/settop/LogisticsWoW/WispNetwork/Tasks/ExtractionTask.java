@@ -180,7 +180,7 @@ public abstract class ExtractionTask implements WispTask
             //path to the nearest node, ignoring any visibility
             BlockPos currentNodePos = nextPathStep.node.GetPos();
             //ToDo get the dim correctly
-            WispNode node = network.GetClosestNodeToPos(new ResourceLocation("minecraft:dimension/overworld"), currentNodePos, 16);
+            WispNode node = network.GetClosestNodeToPos(new ResourceLocation("minecraft:overworld"), currentNodePos, 16);
             if(node == null)
             {
                 DropItems();

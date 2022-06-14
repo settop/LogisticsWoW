@@ -143,7 +143,7 @@ public class WispNode
 
         //success if we hit nothing, or if we hit a point that is very close the the target point
         //the hit point may not be on the actual block we are aiming at, but that is fine since we are checking points on edges precision could return either block
-        return result.getType() == HitResult.Type.MISS || result.getLocation().distanceToSqr(closestPositions.getB()) < 0.01;
+        return result.getType() == HitResult.Type.MISS || result.getLocation().distanceToSqr(closestPositions.getB()) < 0.001;
     }
 
     public void EnsureConnection(WispNode node, eConnectionType type)

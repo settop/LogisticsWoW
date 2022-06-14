@@ -33,7 +33,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.stream.Stream;
 
-public class WispNetwork
+public class WispNetwork extends WispNode
 {
 
     public static class ChunkData
@@ -73,8 +73,6 @@ public class WispNetwork
     }
 
     public final ResourceLocation networkDim;
-    public final BlockPos networkPos;
-    public boolean claimed = false;
 
     private final HashMap<ResourceLocation, DimensionData> dimensionData = new HashMap<>();
 
@@ -93,12 +91,30 @@ public class WispNetwork
 
     public WispNetwork(ResourceLocation dim, BlockPos pos)
     {
+        super(pos);
+        super.connectedNetwork = this;
+
         this.networkDim = dim;
-        this.networkPos = pos;
     }
 
     public ResourceLocation GetDim() { return networkDim; }
-    public BlockPos GetPos() { return networkPos; }
+
+    @Override
+    public boolean CanConnectToPos(Level world, BlockPos target, int connectionRange)
+    {
+        throw new RuntimeException("Wisp network should not have CanConnectToPos called on it.");
+    }
+    @Override
+    public void DisconnectFromWispNetwork(WispNetwork wispNetwork)
+    {
+        throw new RuntimeException("Wisp network should not have DisconnectFromWispNetwork called on it.");
+    }
+
+    @Override
+    public void AddConnectionAndNetworkConnection(WispNode node, eConnectionType type)
+    {
+        throw new RuntimeException("Wisp network should not have AddConnectionAndNetworkConnection called on it.");
+    }
 
     @Nullable
     private DimensionData GetDimensionData(ResourceLocation dim)
@@ -285,6 +301,7 @@ public class WispNetwork
                 //node is connected directly to the network
                 AddNode(GetDim(level), node);
                 hasConnected = true;
+                node.AddConnectionAndNetworkConnection(this, eConnectionType.AutoConnect);
             }
         }
 
@@ -359,15 +376,24 @@ public class WispNetwork
 
     private void EnsureConnectionToAllNodesInRange(Level level, WispNode nodeToConnect)
     {
+        ResourceLocation levelDim = GetDim(level);
+        DimensionData dimData = GetDimensionData(levelDim);
+        if(dimData == null)
+        {
+            throw new RuntimeException("EnsureConnectionToAllNodesInRange dimData is null unexpectedly");
+        }
+
         final Vec3i maxAutoConnectRangeVec = new Vec3i(WispNode.MaxAutoConnectRange, 0, WispNode.MaxAutoConnectRange);
         //see if we can get a connection via any nearby nodes
         ChunkPos chunkMinPos = Utils.GetChunkPos(nodeToConnect.GetPos().subtract( maxAutoConnectRangeVec));
         ChunkPos chunkMaxPos = Utils.GetChunkPos(nodeToConnect.GetPos().offset( maxAutoConnectRangeVec));
 
-        DimensionData dimData = GetDimensionData(GetDim(level));
-        if(dimData == null)
+        if(levelDim.equals(networkDim))
         {
-            throw new RuntimeException("EnsureConnectionToAllNodesInRange dimData is null unexpectedly");
+            if (nodeToConnect.CanConnectToPos(level, GetClosestPos(nodeToConnect.GetPos()), nodeToConnect.autoConnectRange))
+            {
+                nodeToConnect.EnsureConnection(this, WispNode.eConnectionType.AutoConnect);
+            }
         }
 
         for(int x = chunkMinPos.x; x <= chunkMaxPos.x; ++x)
@@ -410,7 +436,8 @@ public class WispNetwork
 
         int autoConnectRangeToCheck = Math.max(nodeToConnect.GetAutoConnectRange(), connectedNode.GetAutoConnectRange());
 
-        if(connectedNode.CanConnectToPos(level, nodeToConnect.GetPos(), autoConnectRangeToCheck))
+        BlockPos connectPos = connectedNode == this ? GetClosestPos(nodeToConnect.GetPos()) : connectedNode.GetPos();
+        if(nodeToConnect.CanConnectToPos(level, connectPos, autoConnectRangeToCheck))
         {
             nodeToConnect.AddConnectionAndNetworkConnection(connectedNode, WispNode.eConnectionType.AutoConnect);
             EnsureConnectionToAllNodesInRange(level, nodeToConnect);
@@ -586,13 +613,14 @@ public class WispNetwork
             if(dim == networkDim)
             {
                 BlockPos testPos = GetClosestPos(node.GetPos());
-                if(node.networkConnectionNode == null)
+                if(node.networkConnectionNode == null || node.networkConnectionNode.node.get() == this)
                 {
                     //check to see if the direct network connection is broken
                     if (!node.CanConnectToPos(level, testPos, TestRange))
                     {
                         node.networkConnectionNode = null;
                         node.connectedNetwork = null;
+                        node.connectedNodes.removeIf(connection->connection.node.get() == this);
                         orphanedNodes.add(node);
                     }
                 }
@@ -601,13 +629,18 @@ public class WispNetwork
                     //check to see if we can form a direct connection
                     if (node.CanConnectToPos(level, testPos, node.autoConnectRange))
                     {
-                        node.networkConnectionNode = null;
+                        node.AddConnectionAndNetworkConnection(this, eConnectionType.AutoConnect);
                     }
                 }
             }
             for(Iterator<WispNode.Connection> connIt = node.connectedNodes.iterator(); connIt.hasNext();)
             {
                 WispNode.Connection connection = connIt.next();
+                if(connection.node.get() == this)
+                {
+                    //already handled above
+                    continue;
+                }
                 if(!node.CanConnectToPos(level, connection.nodePos, TestRange))
                 {
                     //break the connection
@@ -663,13 +696,22 @@ public class WispNetwork
     public WispNode GetClosestNodeToPos(ResourceLocation dim, BlockPos pos, int maxRange)
     {
         DimensionData dimData = GetDimensionData(dim);
+        if(dim == networkDim)
+        {
+            BlockPos offset = GetPos().subtract(pos);
+            int distance = Math.abs(offset.getX()) + Math.abs(offset.getY()) + Math.abs(offset.getZ());
+            if(distance <= maxRange)
+            {
+                return this;
+            }
+        }
         if(dimData == null)
         {
             return null;
         }
 
         WispNode bestNode = null;
-        int bestNodeRange = Integer.MAX_VALUE;
+        int bestNodeRange = maxRange + 1;
 
         BlockPos maxRangeVec = new BlockPos(maxRange, 0, maxRange);
         ChunkPos chunkMinPos = Utils.GetChunkPos(pos.subtract(maxRangeVec));
@@ -702,9 +744,9 @@ public class WispNetwork
 
     public BlockPos GetClosestPos(BlockPos inPos)
     {
-        BlockPos offset = inPos.subtract(networkPos);
+        BlockPos offset = inPos.subtract(GetPos());
         offset = Utils.clamp(offset, -1, 1);
-        return networkPos.offset(offset);
+        return GetPos().offset(offset);
     }
 
     public void Tick(TickEvent.ServerTickEvent tickEvent)
@@ -1009,7 +1051,7 @@ public class WispNetwork
                             .normal(0.f, 1.f, 0.f)
                             .endVertex();
 
-                    builder.vertex(matrix, networkPos.getX(), networkPos.getY(), networkPos.getZ())
+                    builder.vertex(matrix, GetPos().getX(), GetPos().getY(), GetPos().getZ())
                             .color(0.4f, 0.4f, 0.4f, 0.8f)
                             //.overlayCoords(OverlayTexture.NO_OVERLAY)
                             //.lightmap(15728880)
