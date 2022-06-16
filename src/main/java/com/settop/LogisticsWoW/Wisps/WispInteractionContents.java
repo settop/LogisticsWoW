@@ -14,7 +14,7 @@ import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 
 import java.util.ArrayList;
 
-public class BasicWispContents implements Container
+public class WispInteractionContents implements Container
 {
     public interface OnEnhancementChanged
     {
@@ -24,7 +24,7 @@ public class BasicWispContents implements Container
     private final ItemStackHandler wispContents;
     private OnEnhancementChanged listener;
 
-    public BasicWispContents(int size)
+    public WispInteractionContents(int size)
     {
         wispContents = new ItemStackHandler(size);
     }

@@ -59,30 +59,30 @@ public class GlobalWispData
     }
 
     //Returns null if wisp does not exist at this position
-    public static synchronized WispBase GetWisp(Level inWorld, BlockPos inPos)
+    public static synchronized WispInteractionNodeBase GetWisp(Level inWorld, BlockPos inPos)
     {
         WispNode node = GetNode(inWorld, inPos);
-        if(node instanceof WispBase)
+        if(node instanceof WispInteractionNodeBase)
         {
-            return (WispBase)node;
+            return (WispInteractionNodeBase)node;
         }
 
         return null;
     }
 
-    private static synchronized WispBase TryClaimWisp(Level inWorld, BlockPos inPos)
+    private static synchronized WispInteractionNodeBase TryClaimWisp(Level inWorld, BlockPos inPos)
     {
         WispNode node = TryClaimExistingNode(inWorld, inPos);
         if(node == null)
         {
             return null;
         }
-        if(!(node instanceof WispBase))
+        if(!(node instanceof WispInteractionNodeBase))
         {
             throw new RuntimeException("Claiming a wisp claimed a node instead");
         }
 
-        return (WispBase)node;
+        return (WispInteractionNodeBase)node;
     }
 
     /**
@@ -91,14 +91,14 @@ public class GlobalWispData
      *
      * Return's the wisp and a boolean indicating if the wisp is a newly created one
      **/
-    public static synchronized Tuple<WispBase, Boolean> CreateOrGetWisp(String type, Level inWorld, BlockPos inPos, CompoundTag tagData)
+    public static synchronized Tuple<WispInteractionNodeBase, Boolean> CreateOrGetWisp(String type, Level inWorld, BlockPos inPos, CompoundTag tagData)
     {
         if(inWorld.isClientSide())
         {
             throw new RuntimeException("Trying to get chunk data on client");
         }
 
-        WispBase existingWisp = GetWisp(inWorld, inPos);
+        WispInteractionNodeBase existingWisp = GetWisp(inWorld, inPos);
         if(existingWisp != null)
         {
             if(!existingWisp.GetType().equals(type))
@@ -108,7 +108,7 @@ public class GlobalWispData
             return new Tuple<> (existingWisp, false);
         }
 
-        WispBase newWisp = WispFactory.CreateNewWisp(type, inWorld.dimension().location(), inPos);
+        WispInteractionNodeBase newWisp = WispFactory.CreateNewWisp(type, inWorld.dimension().location(), inPos);
         newWisp.InitFromTagData(tagData);
         newWisp.claimed = true;
 
@@ -294,7 +294,7 @@ public class GlobalWispData
         WispNode existingNode = TryClaimExistingNode(inWorld, pos);
         if(existingNode != null)
         {
-            if(existingNode instanceof WispBase)
+            if(existingNode instanceof WispInteractionNodeBase)
             {
                 throw new RuntimeException("Claiming a wisp node claimed a wisp instead");
             }
@@ -763,7 +763,7 @@ public class GlobalWispData
         if(updateEvent.getState().getBlock() == Blocks.AIR)
         {
             //block was removed
-            WispBase wisp = GetWisp((Level)updateEvent.getWorld(), updateEvent.getPos());
+            WispInteractionNodeBase wisp = GetWisp((Level)updateEvent.getWorld(), updateEvent.getPos());
 
             if(wisp != null)
             {

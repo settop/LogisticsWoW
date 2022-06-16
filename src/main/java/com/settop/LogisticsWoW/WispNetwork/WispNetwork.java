@@ -21,7 +21,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import com.settop.LogisticsWoW.Utils.Utils;
-import com.settop.LogisticsWoW.Wisps.WispBase;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import com.settop.LogisticsWoW.Wisps.WispFactory;
 import com.settop.LogisticsWoW.Wisps.WispNode;
 import net.minecraftforge.client.event.RenderLevelLastEvent;
@@ -40,13 +40,13 @@ public class WispNetwork extends WispNode
     {
         public final ArrayList<WispNode> nodes = new ArrayList<>();//includes both nodes and wisps
 
-        public Stream<WispBase> GetWisps()
+        public Stream<WispInteractionNodeBase> GetWisps()
         {
-            return nodes.stream().filter(node->node instanceof WispBase).map(node->(WispBase)node);
+            return nodes.stream().filter(node->node instanceof WispInteractionNodeBase).map(node->(WispInteractionNodeBase)node);
         }
         public Stream<WispNode> GetOnlyNodes()
         {
-            return nodes.stream().filter(node->!(node instanceof WispBase));
+            return nodes.stream().filter(node->!(node instanceof WispInteractionNodeBase));
         }
     }
 
@@ -903,6 +903,16 @@ public class WispNetwork extends WispNode
         }
     }
 
+    public CarryWisp TryReserveCarryWisp(WispNode destination, int targetCapacity)
+    {
+        return new BasicCarryWisp(this, 0, 0);
+    }
+
+    public WispNode GetBestCarryWispSink(WispNode fromNode)
+    {
+        return this;
+    }
+
     public static WispNetwork CreateAndRead(ResourceLocation dim, BlockPos pos, CompoundTag nbt)
     {
         WispNetwork network = new WispNetwork(dim, pos);
@@ -912,6 +922,7 @@ public class WispNetwork extends WispNode
 
     public void read(CompoundTag nbt)
     {
+        super.Load(nbt);
         CompoundTag dimensionDataNBT = nbt.getCompound("dimensionData");
 
         for(String dimName : dimensionDataNBT.getAllKeys())
@@ -929,7 +940,7 @@ public class WispNetwork extends WispNode
             for(int i = 0; i < networkWisps.size(); ++i)
             {
                 CompoundTag wispNBT = networkWisps.getCompound(i);
-                WispBase loadedWisp = WispFactory.LoadWisp(dimensionName, wispNBT);
+                WispInteractionNodeBase loadedWisp = WispFactory.LoadWisp(dimensionName, wispNBT);
 
                 BlockPos wispPos = loadedWisp.GetPos();
                 dimData.EnsureChunkData(Utils.GetChunkPos(wispPos)).nodes.add(loadedWisp);
@@ -955,7 +966,7 @@ public class WispNetwork extends WispNode
                      node.ConnectToWispNetwork(this);
                      for(WispNode.Connection connection : node.connectedNodes)
                      {
-                         WispNode otherNode = GetNode(dimData.getKey(), connection.nodePos);
+                         WispNode otherNode = GetPos().equals(connection.nodePos) && dimData.getKey().equals(networkDim) ? this : GetNode(dimData.getKey(), connection.nodePos);
                          for(WispNode.Connection otherConnection : otherNode.connectedNodes)
                          {
                              if(otherConnection.nodePos.equals(node.GetPos()))
@@ -966,6 +977,21 @@ public class WispNetwork extends WispNode
                      }
                  }
              }
+        }
+
+        {
+            WeakReference<WispNode> nodeWeak = new WeakReference<>(this);
+            for(WispNode.Connection connection : connectedNodes)
+            {
+                WispNode otherNode = GetNode(networkDim, connection.nodePos);
+                for(WispNode.Connection otherConnection : otherNode.connectedNodes)
+                {
+                    if(otherConnection.nodePos.equals(GetPos()))
+                    {
+                        otherConnection.node = nodeWeak;
+                    }
+                }
+            }
         }
 
     }
@@ -983,7 +1009,7 @@ public class WispNetwork extends WispNode
             {
                 for(WispNode node : chunkData.nodes)
                 {
-                    if(node instanceof WispBase)
+                    if(node instanceof WispInteractionNodeBase)
                     {
                         networkWisps.add(node.Save());
                     }
@@ -1001,6 +1027,7 @@ public class WispNetwork extends WispNode
             dimensionDataNBT.put(dimensionEntry.getKey().toString(), dimDataNBT);
         }
         compound.put("dimensionData", dimensionDataNBT);
+        Write(this, compound);
 
         return compound;
     }

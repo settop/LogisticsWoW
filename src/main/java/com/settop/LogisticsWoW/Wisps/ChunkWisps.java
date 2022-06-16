@@ -23,13 +23,13 @@ public class ChunkWisps
     {
         for(WispNode node : unregisteredNodes)
         {
-            if(node instanceof WispBase)
+            if(node instanceof WispInteractionNodeBase)
             {
                 BlockEntity blockEntity = chunk.getBlockEntity(node.GetPos());
                 if(blockEntity != null)
                 {
                     node.claimed = true;
-                    WispBase wisp = (WispBase)node;
+                    WispInteractionNodeBase wisp = (WispInteractionNodeBase)node;
                     wisp.SetConnectedBlockEntity(blockEntity);
                 }
             }
@@ -73,7 +73,7 @@ public class ChunkWisps
         ListTag nodes = new ListTag();
         for( WispNode node : unregisteredNodes)
         {
-            if(node instanceof WispBase)
+            if(node instanceof WispInteractionNodeBase)
             {
                 CompoundTag wispNBT = node.Save();
                 wisps.add(wispNBT);
@@ -103,7 +103,7 @@ public class ChunkWisps
             ListTag wisps = nbt.getList("wisps", nbt.getId());
             for (int i = 0; i < wisps.size(); ++i)
             {
-                WispBase loadedWisp = WispFactory.LoadWisp(dim, wisps.getCompound(i));
+                WispInteractionNodeBase loadedWisp = WispFactory.LoadWisp(dim, wisps.getCompound(i));
                 unregisteredNodes.add(loadedWisp);
             }
         }

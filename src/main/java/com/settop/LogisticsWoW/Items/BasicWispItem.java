@@ -1,7 +1,6 @@
 package com.settop.LogisticsWoW.Items;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Tuple;
@@ -18,7 +17,7 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 import com.settop.LogisticsWoW.Wisps.GlobalWispData;
-import com.settop.LogisticsWoW.Wisps.WispBase;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import com.settop.LogisticsWoW.Wisps.WispConstants;
 import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.NotNull;
@@ -65,7 +64,7 @@ public class BasicWispItem extends Item
             {
                 ItemStack wispItemStack = context.getItemInHand();
                 //server side only work
-                Tuple<WispBase, Boolean> blocksWisp = GlobalWispData.CreateOrGetWisp(WispConstants.BASIC_WISP, world, context.getClickedPos(), wispItemStack.getTag());
+                Tuple<WispInteractionNodeBase, Boolean> blocksWisp = GlobalWispData.CreateOrGetWisp(WispConstants.WISP_INTERACTION_NODE, world, context.getClickedPos(), wispItemStack.getTag());
                 if(blocksWisp.getB() && !context.getPlayer().isCreative())
                 {
                     //we just added it, so remove one from the stack

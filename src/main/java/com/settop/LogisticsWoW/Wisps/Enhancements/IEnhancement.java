@@ -1,7 +1,7 @@
 package com.settop.LogisticsWoW.Wisps.Enhancements;
 
 import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
-import com.settop.LogisticsWoW.Wisps.WispBase;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.TooltipFlag;
@@ -23,5 +23,5 @@ public interface IEnhancement
     void DeserializeNBT(CompoundTag nbt);
     EnhancementTypes GetType();
     void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn);
-    void Setup(WispBase parentWisp, BlockEntity blockEntity);
+    void Setup(WispInteractionNodeBase parentWisp, BlockEntity blockEntity);
 }

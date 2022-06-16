@@ -1,8 +1,8 @@
 {
     "block.logwow.wisp_core": "Wisp Core",
-    "block.logwow.wisp_connection_node": "Wisp Connector",
+    "block.logwow.wisp_connection_node": "Wisp Connector Node",
 
-    "item.logwow.wisp": "Wisp",
+    "item.logwow.wisp": "Lesser Wisp Interaction Node",
     "item.logwow.wisp_storage_enhancement": "Storage Enhancement",
 
     "container.logwow.basic_wisp_menu": "Wisp",

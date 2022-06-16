@@ -6,7 +6,7 @@ import com.settop.LogisticsWoW.Utils.Constants;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.WispNetwork.*;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
-import com.settop.LogisticsWoW.Wisps.WispBase;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -252,7 +252,7 @@ public class StorageEnhancement implements IEnhancement
         }
 
         @Override
-        public WispBase GetAttachedWisp()
+        public WispInteractionNodeBase GetAttachedWisp()
         {
             assert IsValid();
             return parentWisp;
@@ -302,10 +302,9 @@ public class StorageEnhancement implements IEnhancement
     //data player can tweak
     private int priority = 0;
     private final FakeInventory filter = new FakeInventory(FILTER_SIZE, false);
-    private ArrayList<ResourceLocation> tagFilter;
+    private final ArrayList<ResourceLocation> tagFilter = new ArrayList<>();
     private Constants.eFilterType filterType = Constants.eFilterType.Item;
     private final int extractionSpeedRank = 0;
-    private final int extractionCountRank = 0;
 
     //cached versions of the player data
     private Constants.eFilterType effectiveFilterType = Constants.eFilterType.Item;
@@ -313,7 +312,7 @@ public class StorageEnhancement implements IEnhancement
     private final ArrayList<ITag<Item>> filteredTags = new ArrayList<>();
 
     //operation data
-    private WispBase parentWisp;
+    private WispInteractionNodeBase parentWisp;
     private LazyOptional<IItemHandler> connectedItemHandler;
     private final HashMap<Item, ItemTracker> itemSources = new HashMap<>();
     private StorageItemSink itemSink;
@@ -342,7 +341,7 @@ public class StorageEnhancement implements IEnhancement
             nbt.put("filter", filterNBT);
         }
 
-        if(tagFilter != null)
+        if(!tagFilter.isEmpty())
         {
             ListTag tagFilterListNBT = new ListTag();
 
@@ -382,7 +381,6 @@ public class StorageEnhancement implements IEnhancement
 
         if (nbt.contains("tagFilter"))
         {
-            tagFilter = new ArrayList<>();
             ListTag tagFilterListNBT = nbt.getList("tagFilter", 8);
             for(Tag tag : tagFilterListNBT)
             {
@@ -443,7 +441,7 @@ public class StorageEnhancement implements IEnhancement
     }
 
     @Override
-    public void Setup(WispBase parentWisp, BlockEntity blockEntity)
+    public void Setup(WispInteractionNodeBase parentWisp, BlockEntity blockEntity)
     {
         if(blockEntity == null)
         {
@@ -630,8 +628,13 @@ public class StorageEnhancement implements IEnhancement
             fallbackState = eExtractionState.NO_DESTINATION;
 
             ItemSink.Reservation reservation;
-            int idealExtractionCount = Math.min(Constants.GetExtractionCountPerTick(extractionCountRank), tracker.GetNumAvailable() - queuedExtractionAmount);
-            ItemStack testStack = new ItemStack(item, idealExtractionCount);
+            int idealExtractionCount = tracker.GetNumAvailable() - queuedExtractionAmount;
+            CarryWisp reservedCarryWisp = parentWisp.connectedNetwork.TryReserveCarryWisp(parentWisp, idealExtractionCount);
+            if(reservedCarryWisp == null)
+            {
+                continue;
+            }
+            ItemStack testStack = new ItemStack(item, Math.min(idealExtractionCount, reservedCarryWisp.GetCarryCapacity()));
             if(effectiveFilterType == Constants.eFilterType.Default)
             {
                 reservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, Integer.MIN_VALUE, priority, true );
@@ -642,8 +645,10 @@ public class StorageEnhancement implements IEnhancement
             }
             if(reservation == null)
             {
+                reservedCarryWisp.ReleaseReservation();
                 continue;
             }
+            reservedCarryWisp.Claim();
             if(tracker.extractionReservations == null)
             {
                 tracker.extractionReservations = new ArrayList<>();
@@ -678,10 +683,9 @@ public class StorageEnhancement implements IEnhancement
     public ArrayList<ResourceLocation> GetTagFilters() { return tagFilter; }
     public void SetTagFilters(ArrayList<String> tags)
     {
-        tagFilter = null;
+        tagFilter.clear();
         if(tags != null && !tags.isEmpty())
         {
-            tagFilter = new ArrayList<>();
             for (String tag : tags)
             {
                 if(ResourceLocation.isValidResourceLocation(tag))

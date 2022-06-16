@@ -18,7 +18,8 @@ public class Constants
     //5 seconds
     public static final int SLEEP_TICK_TIMER = 100;
     public static final int BASE_EXTRACTION_TICK_DELAY = 32;
-    public static final int BASE_EXTRACTION_AMOUNT = 16;
+    public static final int BASE_CARRY_AMOUNT = 16;
+    public static final float BASE_CARRY_SPEED = 0.8f;
 
     public static int GetInitialSleepTimer()
     {
@@ -43,12 +44,21 @@ public class Constants
         return Math.max((1 << extractionSpeedRank) / BASE_EXTRACTION_TICK_DELAY, 1);
     }
 
-    public static int GetExtractionCountPerTick(int extractionAmountRank)
+    public static int GetCarryCount(int carryAmountRank)
     {
-        if(extractionAmountRank <= 0)
+        if(carryAmountRank <= 0)
         {
-            return BASE_EXTRACTION_AMOUNT;
+            return BASE_CARRY_AMOUNT;
         }
-        return BASE_EXTRACTION_AMOUNT << extractionAmountRank;
+        return BASE_CARRY_AMOUNT << carryAmountRank;
+    }
+
+    public static float GetCarrySpeed(int carrySpeedRank)
+    {
+        if(carrySpeedRank <= 0)
+        {
+            return BASE_CARRY_SPEED;
+        }
+        return BASE_CARRY_SPEED * (1 << carrySpeedRank);
     }
 }

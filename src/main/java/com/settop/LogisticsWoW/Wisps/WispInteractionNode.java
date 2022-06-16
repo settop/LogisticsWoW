@@ -23,19 +23,19 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 
-public class BasicWisp extends WispBase
+public class WispInteractionNode extends WispInteractionNodeBase
 {
-    private final BasicWispContents contents = new BasicWispContents(2);
-    private ArrayList<IEnhancement> enhancements;
+    private final WispInteractionContents contents = new WispInteractionContents(2);
+    private final ArrayList<IEnhancement> enhancements = new ArrayList<>();
     private BlockEntity blockEntity;
 
 
-    public BasicWisp()
+    public WispInteractionNode()
     {
         super();
     }
 
-    public BasicWisp(BlockPos inPos)
+    public WispInteractionNode(BlockPos inPos)
     {
         super(inPos);
     }
@@ -64,7 +64,7 @@ public class BasicWisp extends WispBase
     @Override
     public String GetType()
     {
-        return WispConstants.BASIC_WISP;
+        return WispConstants.WISP_INTERACTION_NODE;
     }
 
     @Override
@@ -94,7 +94,7 @@ public class BasicWisp extends WispBase
     @Override
     public void UpdateFromContents()
     {
-        enhancements = new ArrayList<>();
+        enhancements.clear();
         for(int i = 0; i < contents.getContainerSize(); ++i)
         {
             ItemStack contentsItem = contents.getItem(i);

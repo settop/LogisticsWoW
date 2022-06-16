@@ -1,5 +1,6 @@
 package com.settop.LogisticsWoW.WispNetwork.Tasks;
 
+import com.settop.LogisticsWoW.WispNetwork.CarryWisp;
 import com.settop.LogisticsWoW.WispNetwork.ItemSink;
 import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import com.settop.LogisticsWoW.Wisps.WispNode;
@@ -33,27 +34,25 @@ public abstract class ExtractionTask implements WispTask
         }
     }
 
-    private WispNode wispSourceNode;
+    private CarryWisp carryWisp;
     private WispNode extractFromNode;
     private WispNode extractToNode;
-    //blocks per tick
-    private final float speed = 0.8f;
 
     private eState currentState = eState.GoingToPickup;
     private WispNode.NextPathStep nextPathStep = null;
     private float leftoverFractionalTick = 0.f;
     private ExtractionData extractedData = null;
 
-    public ExtractionTask(@Nonnull WispNode wispSourceNode, @Nonnull WispNode extractFromNode, @Nonnull WispNode extractToNode)
+    public ExtractionTask(@Nonnull CarryWisp carryWisp, @Nonnull WispNode extractFromNode, @Nonnull WispNode extractToNode)
     {
-        this.wispSourceNode = wispSourceNode;
+        this.carryWisp = carryWisp;
         this.extractFromNode = extractFromNode;
         this.extractToNode = extractToNode;
     }
 
     public int GetNextTickOffset()
     {
-        float timeToNextNode = (nextPathStep.distToNode / speed) - leftoverFractionalTick;
+        float timeToNextNode = (nextPathStep.distToNode / carryWisp.GetSpeed()) - leftoverFractionalTick;
         float numTicks = (float)Math.ceil(timeToNextNode);
         leftoverFractionalTick = numTicks - timeToNextNode;
         return (int)numTicks;
@@ -72,11 +71,11 @@ public abstract class ExtractionTask implements WispTask
     @Override
     public int Start(@NotNull WispNetwork network, int startTickTime)
     {
-        assert wispSourceNode.connectedNetwork == network;
+        assert carryWisp.sourceNode.connectedNetwork == network;
         assert extractFromNode.connectedNetwork == network;
         assert extractToNode.connectedNetwork == network;
 
-        nextPathStep = network.GetNextPathStep(wispSourceNode, extractFromNode);
+        nextPathStep = network.GetNextPathStep(carryWisp.sourceNode, extractFromNode);
         return startTickTime + GetNextTickOffset();
     }
 
@@ -159,17 +158,17 @@ public abstract class ExtractionTask implements WispTask
             case GoingHome ->
             {
                 //ToDo handle wisps properly
-                if(wispSourceNode.connectedNetwork != network)
+                if(carryWisp.sourceNode.connectedNetwork != network)
                 {
                     return OptionalInt.empty();
                 }
-                else if(nextPathStep.node == wispSourceNode)
+                else if(nextPathStep.node == carryWisp.sourceNode)
                 {
                     //we are done
                     //insert the wisp back
                     return OptionalInt.empty();
                 }
-                targetNode = wispSourceNode;
+                targetNode = carryWisp.sourceNode;
             }
         }
 

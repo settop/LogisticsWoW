@@ -3,11 +3,10 @@ package com.settop.LogisticsWoW.Client.Screens;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.settop.LogisticsWoW.LogisticsWoW;
-import net.minecraft.client.Minecraft;
 import com.settop.LogisticsWoW.GUI.Network.Packets.CContainerTabSelected;
 import com.settop.LogisticsWoW.GUI.SubMenus.PlayerInventorySubMenu;
 import com.settop.LogisticsWoW.GUI.BasicWispMenu;
-import com.settop.LogisticsWoW.Wisps.BasicWispContents;
+import com.settop.LogisticsWoW.Wisps.WispInteractionContents;
 import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
@@ -55,7 +54,7 @@ public class BasicWispContainerScreen extends MultiScreen<BasicWispMenu> impleme
     }
 
     private ArrayList<Button> tabs;
-    private BasicWispContents wispContents;
+    private WispInteractionContents wispContents;
 
     public BasicWispContainerScreen(BasicWispMenu container, Inventory playerInventory, Component title)
     {

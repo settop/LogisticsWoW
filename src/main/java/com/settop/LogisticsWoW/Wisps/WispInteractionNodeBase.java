@@ -16,14 +16,14 @@ import net.minecraftforge.common.extensions.IForgeLevel;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
-public abstract class WispBase extends WispNode implements MenuProvider
+public abstract class WispInteractionNodeBase extends WispNode implements MenuProvider
 {
-    public WispBase()
+    public WispInteractionNodeBase()
     {
         //expect a load to follow
     }
 
-    public WispBase(BlockPos inPos)
+    public WispInteractionNodeBase(BlockPos inPos)
     {
         super(inPos);
     }

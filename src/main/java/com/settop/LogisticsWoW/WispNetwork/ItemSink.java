@@ -1,7 +1,7 @@
 package com.settop.LogisticsWoW.WispNetwork;
 
 import com.settop.LogisticsWoW.Utils.Invalidable;
-import com.settop.LogisticsWoW.Wisps.WispBase;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.world.item.ItemStack;
 
 public abstract class ItemSink extends Invalidable
@@ -28,5 +28,5 @@ public abstract class ItemSink extends Invalidable
     abstract public Reservation ReserveInsert(ItemStack stack);
     abstract public ItemStack Insert(ItemStack stack);
     abstract public ItemStack ReservedInsert(Reservation reservation, ItemStack stack);
-    abstract public WispBase GetAttachedWisp();
+    abstract public WispInteractionNodeBase GetAttachedWisp();
 }
