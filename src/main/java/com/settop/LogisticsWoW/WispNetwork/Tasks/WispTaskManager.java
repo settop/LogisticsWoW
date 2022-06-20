@@ -23,6 +23,8 @@ public class WispTaskManager
     }
     //sorted in reverse order, the first task to finish should be at the end
     protected ArrayList<QueuedWispTask> tasks = new ArrayList<>();
+    protected ArrayList<QueuedWispTask> newTasks = new ArrayList<>();
+    protected boolean inAdvance = false;
 
     public void Advance(@Nonnull TickEvent.ServerTickEvent tickEvent, @Nonnull WispNetwork network, int currentTickTime)
     {
@@ -32,6 +34,7 @@ public class WispTaskManager
         int processCount = 0;
 
         boolean needsSort = false;
+        inAdvance = true;
         //reverse iterator
         for(ListIterator<QueuedWispTask> it = tasks.listIterator(tasks.size()); it.hasPrevious(); ++processCount)
         {
@@ -63,6 +66,14 @@ public class WispTaskManager
                 break;
             }
         }
+        inAdvance = false;
+
+        if(!newTasks.isEmpty())
+        {
+            tasks.addAll(newTasks);
+            newTasks.clear();
+            needsSort = true;
+        }
         if(needsSort)
         {
             tasks.sort(null);
@@ -93,36 +104,43 @@ public class WispTaskManager
         queuedTask.task = task;
         queuedTask.tickTime = firstTickTime;
 
-        //find the index to insert on to retain the correct ordering
-        int begin = 0;
-        int end = tasks.size();
-        while(begin != end)
+        if(inAdvance)
         {
-            int testIndex = (begin + end) / 2;
-            int comp = queuedTask.compareTo(tasks.get(testIndex));
-            if(comp == 0)
-            {
-                //insert it here
-                tasks.add(testIndex, queuedTask);
-                return;
-            }
-            else if(comp < 0)
-            {
-                end = testIndex;
-            }
-            else
-            {
-                begin = testIndex + 1;
-            }
-        }
-        if(begin == tasks.size())
-        {
-            //adding to the end
-            tasks.add(queuedTask);
+            newTasks.add(queuedTask);
         }
         else
         {
-            tasks.add(begin, queuedTask);
+            //find the index to insert on to retain the correct ordering
+            int begin = 0;
+            int end = tasks.size();
+            while(begin != end)
+            {
+                int testIndex = (begin + end) / 2;
+                int comp = queuedTask.compareTo(tasks.get(testIndex));
+                if(comp == 0)
+                {
+                    //insert it here
+                    tasks.add(testIndex, queuedTask);
+                    return;
+                }
+                else if(comp < 0)
+                {
+                    end = testIndex;
+                }
+                else
+                {
+                    begin = testIndex + 1;
+                }
+            }
+            if(begin == tasks.size())
+            {
+                //adding to the end
+                tasks.add(queuedTask);
+            }
+            else
+            {
+                tasks.add(begin, queuedTask);
+            }
         }
     }
 }

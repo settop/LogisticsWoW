@@ -5,6 +5,7 @@ import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
 import com.settop.LogisticsWoW.Utils.Constants;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.WispNetwork.*;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.TransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.nbt.CompoundTag;
@@ -24,11 +25,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.tags.ITag;
 import net.minecraftforge.registries.tags.ITagManager;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nonnull;
 import java.util.*;
 
 import static net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY;
@@ -102,13 +105,32 @@ public class StorageEnhancement implements IEnhancement
         }
     }
 
-    private static class ItemTracker extends ItemSource
+    private static class ReservationPair
     {
-        ArrayList<ItemSink.Reservation> extractionReservations;
+        public final ItemSink.Reservation targetReservation;
+        public final ItemSource.Reservation selfReservation;
 
-        public ItemTracker(int numAvailable)
+        private ReservationPair(@Nonnull ItemSink.Reservation targetReservation, @Nonnull ItemSource.Reservation selfReservation)
         {
-            super(numAvailable);
+            this.targetReservation = targetReservation;
+            this.selfReservation = selfReservation;
+        }
+
+        public void SetInvalid()
+        {
+            targetReservation.SetInvalid();
+            selfReservation.SetInvalid();
+        }
+    }
+    private class ItemTracker extends ItemSource
+    {
+        ArrayList<ReservationPair> extractionReservations;
+        final Item trackedItem;
+
+        public ItemTracker(Item trackedItem)
+        {
+            super(0);
+            this.trackedItem = trackedItem;
         }
 
         @Override
@@ -117,8 +139,53 @@ public class StorageEnhancement implements IEnhancement
             super.SetInvalid();
             if(extractionReservations != null)
             {
-                extractionReservations.forEach(ItemSink.Reservation::SetInvalid);
+                extractionReservations.forEach(ReservationPair::SetInvalid);
             }
+        }
+
+        @Override
+        public ItemStack Extract(int count)
+        {
+            return connectedItemHandler.map(itemHandler->
+            {
+                int localCount = count;
+                ItemStack retItem = ItemStack.EMPTY;
+                for(int slot = 0; slot < itemHandler.getSlots() && localCount > 0; ++slot)
+                {
+                    ItemStack slotStack = itemHandler.getStackInSlot(slot);
+                    if(slotStack.getItem() != trackedItem ||
+                            (!retItem.isEmpty() && !ItemHandlerHelper.canItemStacksStack(retItem, slotStack)))
+                    {
+                        continue;
+                    }
+                    ItemStack extractedStack = itemHandler.extractItem(slot, localCount, false);
+                    localCount -= extractedStack.getCount();
+                    if(retItem.isEmpty())
+                    {
+                        retItem = extractedStack;
+                    }
+                    else
+                    {
+                        retItem.grow(extractedStack.getCount());
+                    }
+                }
+                return retItem;
+            }).orElse(ItemStack.EMPTY);
+        }
+
+        @Override
+        public ItemStack ReservedExtract(Reservation reservation)
+        {
+            assert reservation.IsValid();
+            extractionReservations.removeIf(pair->pair.selfReservation == reservation);
+
+            return Extract(reservation.reservationSize);
+        }
+
+        @Override
+        public WispInteractionNodeBase GetAttachedInteractionNode()
+        {
+            return parentWisp;
         }
     }
 
@@ -252,7 +319,7 @@ public class StorageEnhancement implements IEnhancement
         }
 
         @Override
-        public WispInteractionNodeBase GetAttachedWisp()
+        public WispInteractionNodeBase GetAttachedInteractionNode()
         {
             assert IsValid();
             return parentWisp;
@@ -553,7 +620,7 @@ public class StorageEnhancement implements IEnhancement
                     continue;
                 }
 
-                ItemSource itemSource = itemSources.computeIfAbsent(slotStack.getItem(), item->new ItemTracker(0));
+                ItemSource itemSource = itemSources.computeIfAbsent(slotStack.getItem(), ItemTracker::new);
                 itemSource.UpdateNumAvailable(itemSource.GetNumAvailable() + slotStack.getCount());
             }
         });
@@ -608,15 +675,16 @@ public class StorageEnhancement implements IEnhancement
             int queuedExtractionAmount = 0;
             if(tracker.extractionReservations != null)
             {
-                for(Iterator<ItemSink.Reservation> it = tracker.extractionReservations.iterator(); it.hasNext();)
+                for(Iterator<ReservationPair> it = tracker.extractionReservations.iterator(); it.hasNext();)
                 {
-                    ItemSink.Reservation reservation = it.next();
-                    if(reservation.IsValid())
+                    ReservationPair reservation = it.next();
+                    if(reservation.targetReservation.IsValid() && reservation.selfReservation.IsValid())
                     {
-                        queuedExtractionAmount += reservation.reservationSize;
+                        queuedExtractionAmount += reservation.targetReservation.reservationSize;
                     }
                     else
                     {
+                        reservation.SetInvalid();
                         it.remove();
                     }
                 }
@@ -653,7 +721,9 @@ public class StorageEnhancement implements IEnhancement
             {
                 tracker.extractionReservations = new ArrayList<>();
             }
-            tracker.extractionReservations.add(reservation);
+            ItemSource.Reservation selfReservation = new ItemSource.Reservation(tracker,  reservation.reservationSize);
+            tracker.extractionReservations.add(new ReservationPair(reservation, selfReservation));
+            parentWisp.connectedNetwork.StartTask(new TransferTask(reservedCarryWisp, selfReservation, reservation));
             return eExtractionState.ACTIVE;
         }
         return fallbackState;

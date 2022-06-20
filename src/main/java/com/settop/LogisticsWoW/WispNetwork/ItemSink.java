@@ -28,5 +28,5 @@ public abstract class ItemSink extends Invalidable
     abstract public Reservation ReserveInsert(ItemStack stack);
     abstract public ItemStack Insert(ItemStack stack);
     abstract public ItemStack ReservedInsert(Reservation reservation, ItemStack stack);
-    abstract public WispInteractionNodeBase GetAttachedWisp();
+    abstract public WispInteractionNodeBase GetAttachedInteractionNode();
 }

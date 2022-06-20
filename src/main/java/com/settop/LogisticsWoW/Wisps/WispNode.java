@@ -211,12 +211,15 @@ public class WispNode
         pos = NbtUtils.readBlockPos(nbt.getCompound("pos"));
         autoConnectRange = nbt.getInt("autoConnectRange");
 
+        /*
         if(nbt.contains("ConnectedNetworkDim") && nbt.contains("ConnectedNetworkPos"))
         {
             ResourceLocation dim = ResourceLocation.tryParse(nbt.getString("ConnectedNetworkDim"));
             BlockPos networkPos = NbtUtils.readBlockPos(nbt.getCompound("ConnectedNetworkPos"));
             connectedNetwork = GlobalWispData.GetWispNetwork(dim, networkPos);
         }
+
+         */
 
         ListTag nodeConnectionsNBT = nbt.getList("nodes", nbt.getId());
         for(int i = 0; i < nodeConnectionsNBT.size(); ++i)

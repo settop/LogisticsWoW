@@ -2,6 +2,7 @@ package com.settop.LogisticsWoW.WispNetwork.Tasks;
 
 import com.settop.LogisticsWoW.WispNetwork.CarryWisp;
 import com.settop.LogisticsWoW.WispNetwork.ItemSink;
+import com.settop.LogisticsWoW.WispNetwork.ItemSource;
 import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import com.settop.LogisticsWoW.Wisps.WispNode;
 import net.minecraft.core.BlockPos;
@@ -13,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nonnull;
 import java.util.OptionalInt;
 
-public abstract class ExtractionTask implements WispTask
+public class TransferTask implements WispTask
 {
     enum eState
     {
@@ -21,33 +22,20 @@ public abstract class ExtractionTask implements WispTask
         GoingToDropoff,
         GoingHome
     }
-
-    public static class ExtractionData
-    {
-        public ItemSink.Reservation reservation;
-        public ItemStack itemStack;
-
-        public ExtractionData(@Nonnull ItemSink.Reservation reservation, @Nonnull ItemStack itemStack)
-        {
-            this.reservation = reservation;
-            this.itemStack = itemStack;
-        }
-    }
-
     private CarryWisp carryWisp;
-    private WispNode extractFromNode;
-    private WispNode extractToNode;
+    private ItemSource.Reservation pickupReservation;
+    private ItemSink.Reservation dropoffReservation;
 
     private eState currentState = eState.GoingToPickup;
     private WispNode.NextPathStep nextPathStep = null;
     private float leftoverFractionalTick = 0.f;
-    private ExtractionData extractedData = null;
+    private ItemStack carriedItems;
 
-    public ExtractionTask(@Nonnull CarryWisp carryWisp, @Nonnull WispNode extractFromNode, @Nonnull WispNode extractToNode)
+    public TransferTask(@Nonnull CarryWisp carryWisp, @Nonnull ItemSource.Reservation pickupReservation, @Nonnull ItemSink.Reservation dropoffReservation)
     {
         this.carryWisp = carryWisp;
-        this.extractFromNode = extractFromNode;
-        this.extractToNode = extractToNode;
+        this.pickupReservation = pickupReservation;
+        this.dropoffReservation = dropoffReservation;
     }
 
     public int GetNextTickOffset()
@@ -72,10 +60,10 @@ public abstract class ExtractionTask implements WispTask
     public int Start(@NotNull WispNetwork network, int startTickTime)
     {
         assert carryWisp.sourceNode.connectedNetwork == network;
-        assert extractFromNode.connectedNetwork == network;
-        assert extractToNode.connectedNetwork == network;
+        assert pickupReservation.sourceSource.GetAttachedInteractionNode().connectedNetwork == network;
+        assert dropoffReservation.sourceSink.GetAttachedInteractionNode().connectedNetwork == network;
 
-        nextPathStep = network.GetNextPathStep(carryWisp.sourceNode, extractFromNode);
+        nextPathStep = network.GetNextPathStep(carryWisp.sourceNode, pickupReservation.sourceSource.GetAttachedInteractionNode());
         return startTickTime + GetNextTickOffset();
     }
 
@@ -88,60 +76,59 @@ public abstract class ExtractionTask implements WispTask
         {
             case GoingToPickup ->
             {
-                if(extractFromNode.connectedNetwork != network)
+                if(!pickupReservation.IsValid() || pickupReservation.sourceSource.GetAttachedInteractionNode().connectedNetwork != network)
                 {
                     //go home
                     currentState = eState.GoingHome;
                     return OptionalInt.of(currentTickTime + tickOffset);
                 }
-                else if(nextPathStep.node == extractFromNode)
+                else if(nextPathStep.node == pickupReservation.sourceSource.GetAttachedInteractionNode())
                 {
                     //extract and proceed
-                    extractedData = DoExtraction();
-                    if(extractedData == null)
+                    carriedItems = pickupReservation.sourceSource.ReservedExtract(pickupReservation);
+                    if(carriedItems.isEmpty())
                     {
-                        //oh no
+                        //nothing to carry
                         //cancel this task and send the wisp back home
                         currentState = eState.GoingHome;
                         return OptionalInt.of(currentTickTime + tickOffset);
                     }
                     currentState = eState.GoingToDropoff;
 
-                    nextPathStep = network.GetNextPathStep(extractFromNode, extractToNode);
-                    return OptionalInt.of(currentTickTime + tickOffset + GetNextTickOffset());
+                    return OptionalInt.of(currentTickTime + tickOffset);
                 }
-                targetNode = extractFromNode;
+                targetNode = pickupReservation.sourceSource.GetAttachedInteractionNode();
             }
             case GoingToDropoff ->
             {
-                if(!extractedData.reservation.IsValid() || extractToNode.connectedNetwork != network)
+                if(!dropoffReservation.IsValid() || dropoffReservation.sourceSink.GetAttachedInteractionNode().connectedNetwork != network)
                 {
                     //oh no
                     //find somewhere else to place the item
-                    extractedData.reservation = network.GetItemManagement().ReserveSpaceInBestSink(extractedData.itemStack);
-                    if(extractedData.reservation == null)
+                    dropoffReservation = network.GetItemManagement().ReserveSpaceInBestSink(carriedItems);
+                    if(dropoffReservation == null)
                     {
                         //oh no
                         //nowhere to put this item
                         DropItems();
-                        return OptionalInt.empty();
+                        currentState = eState.GoingHome;
+                        return OptionalInt.of(currentTickTime + tickOffset);
                     }
-                    extractToNode = extractedData.reservation.sourceSink.GetAttachedWisp();
                 }
-                else if(nextPathStep.node == extractToNode)
+                else if(nextPathStep.node == dropoffReservation.sourceSink.GetAttachedInteractionNode())
                 {
                     //drop off
-                    ItemStack leftover = extractedData.reservation.sourceSink.ReservedInsert(extractedData.reservation, extractedData.itemStack);
+                    ItemStack leftover = dropoffReservation.sourceSink.ReservedInsert(dropoffReservation, carriedItems);
                     if(leftover.isEmpty())
                     {
                         //go home
                         currentState = eState.GoingHome;
                         return OptionalInt.of(currentTickTime + tickOffset);
                     }
-                    extractedData.itemStack = leftover;
+                    carriedItems = leftover;
                     //else handle it not fitting in
-                    extractedData.reservation = network.GetItemManagement().ReserveSpaceInBestSink(extractedData.itemStack);
-                    if(extractedData.reservation == null)
+                    dropoffReservation = network.GetItemManagement().ReserveSpaceInBestSink(carriedItems);
+                    if(dropoffReservation == null)
                     {
                         //oh no
                         //nowhere to put this item
@@ -151,9 +138,8 @@ public abstract class ExtractionTask implements WispTask
                         return OptionalInt.of(currentTickTime + tickOffset);
                     }
                     //take the leftover to the new destination
-                    extractToNode = extractedData.reservation.sourceSink.GetAttachedWisp();
                 }
-                targetNode = extractToNode;
+                targetNode = dropoffReservation.sourceSink.GetAttachedInteractionNode();
             }
             case GoingHome ->
             {
@@ -196,7 +182,4 @@ public abstract class ExtractionTask implements WispTask
         }
         return OptionalInt.of(currentTickTime + tickOffset + GetNextTickOffset());
     }
-
-    //returns null if the extraction failed
-    abstract public ExtractionData DoExtraction();
 }
