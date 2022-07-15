@@ -8,6 +8,8 @@ import com.settop.LogisticsWoW.GUI.Network.GUIServerMessageHandler;
 import com.settop.LogisticsWoW.GUI.Network.Packets.*;
 import com.settop.LogisticsWoW.Items.BasicWispItem;
 import com.settop.LogisticsWoW.Items.WispEnhancementItem;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.TransferTask;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskFactory;
 import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import net.minecraft.resources.ResourceLocation;
@@ -74,12 +76,19 @@ public class LogisticsWoW
         MinecraftForge.EVENT_BUS.register(this);
     }
 
+    private void SetupTaskFactories()
+    {
+        WispTaskFactory.RegisterFactory(TransferTask.SERIALISABLE_NAME, new TransferTask.Factory());
+    }
+
     private void setup(final FMLCommonSetupEvent event)
     {
         WispCoreBlockEntity.RING_BLOCK_TAGS = new ArrayList<>();
         WispCoreBlockEntity.RING_BLOCK_TAGS.add(Tags.Blocks.STORAGE_BLOCKS_GOLD);
         WispCoreBlockEntity.RING_BLOCK_TAGS.add(Tags.Blocks.STORAGE_BLOCKS_QUARTZ);
         WispCoreBlockEntity.RING_BLOCK_TAGS.add(Tags.Blocks.STORAGE_BLOCKS_AMETHYST);
+
+        SetupTaskFactories();
 
         MULTI_SCREEN_CHANNEL.registerMessage(1, CContainerTabSelected.class,
                 CContainerTabSelected::encode, CContainerTabSelected::decode,

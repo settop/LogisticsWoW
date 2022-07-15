@@ -301,7 +301,8 @@ public class GlobalWispData
             return existingNode;
         }
 
-        WispNode newNode = new WispNode(pos);
+
+        WispNode newNode = new WispNode(inWorld.dimension().location(), pos);
         newNode.claimed = true;
 
         LevelWispData dimData = EnsureWorldData(inWorld.dimension().location());

@@ -72,8 +72,6 @@ public class WispNetwork extends WispNode
         }
     }
 
-    public final ResourceLocation networkDim;
-
     private final HashMap<ResourceLocation, DimensionData> dimensionData = new HashMap<>();
 
     private final WispTaskManager taskManager = new WispTaskManager();
@@ -91,13 +89,9 @@ public class WispNetwork extends WispNode
 
     public WispNetwork(ResourceLocation dim, BlockPos pos)
     {
-        super(pos);
+        super(dim, pos);
         super.connectedNetwork = this;
-
-        this.networkDim = dim;
     }
-
-    public ResourceLocation GetDim() { return networkDim; }
 
     @Override
     public boolean CanConnectToPos(Level world, BlockPos target, int connectionRange)
@@ -201,6 +195,10 @@ public class WispNetwork extends WispNode
 
     public WispNode GetNode(ResourceLocation dimKey, BlockPos inPos)
     {
+        if(inPos.equals(GetPos()) && dimKey.equals(GetDim()))
+        {
+            return this;
+        }
         ChunkData chunkData = GetChunkData(dimKey, Utils.GetChunkPos(inPos));
         if(chunkData != null)
         {
@@ -293,7 +291,7 @@ public class WispNetwork extends WispNode
     public boolean TryAndConnectNodeToNetwork(Level level, WispNode node)
     {
         boolean hasConnected = false;
-        if(level.dimension().location() == networkDim)
+        if(level.dimension().location() == GetDim())
         {
             //same dimension, try and connect directly
             if (node.CanConnectToPos(level, GetClosestPos(node.GetPos()), node.autoConnectRange))
@@ -388,7 +386,7 @@ public class WispNetwork extends WispNode
         ChunkPos chunkMinPos = Utils.GetChunkPos(nodeToConnect.GetPos().subtract( maxAutoConnectRangeVec));
         ChunkPos chunkMaxPos = Utils.GetChunkPos(nodeToConnect.GetPos().offset( maxAutoConnectRangeVec));
 
-        if(levelDim.equals(networkDim))
+        if(levelDim.equals(GetDim()))
         {
             if (nodeToConnect.CanConnectToPos(level, GetClosestPos(nodeToConnect.GetPos()), nodeToConnect.autoConnectRange))
             {
@@ -610,7 +608,7 @@ public class WispNetwork extends WispNode
         for(WispNode node : chunkData.nodes)
         {
             //first check to see if any existing connections are broken
-            if(dim == networkDim)
+            if(dim == GetDim())
             {
                 BlockPos testPos = GetClosestPos(node.GetPos());
                 if(node.networkConnectionNode == null || node.networkConnectionNode.node.get() == this)
@@ -696,7 +694,7 @@ public class WispNetwork extends WispNode
     public WispNode GetClosestNodeToPos(ResourceLocation dim, BlockPos pos, int maxRange)
     {
         DimensionData dimData = GetDimensionData(dim);
-        if(dim == networkDim)
+        if(dim == GetDim())
         {
             BlockPos offset = GetPos().subtract(pos);
             int distance = Math.abs(offset.getX()) + Math.abs(offset.getY()) + Math.abs(offset.getZ());
@@ -771,6 +769,7 @@ public class WispNetwork extends WispNode
         WispNode.NextPathStep cachedPath = start.cachedPaths.get(end);
         if(cachedPath != null)
         {
+            assert cachedPath.node != null;
             return cachedPath;
         }
 
@@ -825,6 +824,7 @@ public class WispNetwork extends WispNode
 
                 WispNode.NextPathStep startNextPathStep = start.cachedPaths.get(end);
                 assert startNextPathStep != null;
+                assert startNextPathStep.node != null;
                 return startNextPathStep;
             }
             for(WispNode.Connection connection : currentNode.node.connectedNodes)
@@ -899,13 +899,14 @@ public class WispNetwork extends WispNode
                     bestPathStep = path;
                 }
             }
+            assert bestPathStep.node != null;
             return bestPathStep;
         }
     }
 
     public CarryWisp TryReserveCarryWisp(WispNode destination, int targetCapacity)
     {
-        return new BasicCarryWisp(this, 0, 0);
+        return new CarryWisp(this, 0, 0);
     }
 
     public WispNode GetBestCarryWispSink(WispNode fromNode)
@@ -922,7 +923,7 @@ public class WispNetwork extends WispNode
 
     public void read(CompoundTag nbt)
     {
-        super.Load(nbt);
+        super.Load(GetDim(), nbt);
         CompoundTag dimensionDataNBT = nbt.getCompound("dimensionData");
 
         for(String dimName : dimensionDataNBT.getAllKeys())
@@ -948,7 +949,7 @@ public class WispNetwork extends WispNode
             ListTag networkNodes = dimDataNBT.getList("nodes", nbt.getId());
             for(int i = 0; i < networkNodes.size(); ++i)
             {
-                WispNode loadedNode = WispNode.ReadNode(networkNodes.getCompound(i));
+                WispNode loadedNode = WispNode.ReadNode(dimensionName, networkNodes.getCompound(i));
                 dimData.EnsureChunkData(Utils.GetChunkPos(loadedNode.GetPos())).nodes.add(loadedNode);
             }
 
@@ -966,7 +967,7 @@ public class WispNetwork extends WispNode
                      node.ConnectToWispNetwork(this);
                      for(WispNode.Connection connection : node.connectedNodes)
                      {
-                         WispNode otherNode = GetPos().equals(connection.nodePos) && dimData.getKey().equals(networkDim) ? this : GetNode(dimData.getKey(), connection.nodePos);
+                         WispNode otherNode = GetPos().equals(connection.nodePos) && dimData.getKey().equals(GetDim()) ? this : GetNode(dimData.getKey(), connection.nodePos);
                          for(WispNode.Connection otherConnection : otherNode.connectedNodes)
                          {
                              if(otherConnection.nodePos.equals(node.GetPos()))
@@ -983,7 +984,7 @@ public class WispNetwork extends WispNode
             WeakReference<WispNode> nodeWeak = new WeakReference<>(this);
             for(WispNode.Connection connection : connectedNodes)
             {
-                WispNode otherNode = GetNode(networkDim, connection.nodePos);
+                WispNode otherNode = GetNode(GetDim(), connection.nodePos);
                 for(WispNode.Connection otherConnection : otherNode.connectedNodes)
                 {
                     if(otherConnection.nodePos.equals(GetPos()))
@@ -994,10 +995,16 @@ public class WispNetwork extends WispNode
             }
         }
 
+        taskManager.DeserialiseNBT(this, tickTime, nbt.getCompound("taskManager"));
     }
 
     public CompoundTag write(CompoundTag compound)
     {
+        CompoundTag taskManagerNBT = taskManager.SerialiseNBT(this, tickTime);
+        if(taskManagerNBT != null)
+        {
+            compound.put("taskManager", taskManagerNBT);
+        }
         CompoundTag dimensionDataNBT = new CompoundTag();
         for(Map.Entry<ResourceLocation, DimensionData> dimensionEntry : dimensionData.entrySet())
         {

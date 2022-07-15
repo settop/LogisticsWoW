@@ -1,7 +1,11 @@
 package com.settop.LogisticsWoW.WispNetwork.Tasks;
 
+import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
 import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,6 +30,11 @@ public class WispTaskManager
     protected ArrayList<QueuedWispTask> newTasks = new ArrayList<>();
     protected boolean inAdvance = false;
 
+    private void HandleLostItemStack(@Nonnull WispNetwork network, ItemStack itemStack)
+    {
+
+    }
+
     public void Advance(@Nonnull TickEvent.ServerTickEvent tickEvent, @Nonnull WispNetwork network, int currentTickTime)
     {
         //make sure that we at least advance a little bit, even in the case tickEvent.haveTime() is false
@@ -48,7 +57,19 @@ public class WispTaskManager
             QueuedWispTask queuedTask = it.previous();
             if(currentTickTime >= queuedTask.tickTime)
             {
-                OptionalInt nextTickTime = queuedTask.task.Tick(tickEvent, network, currentTickTime, queuedTask.tickTime - currentTickTime);
+                OptionalInt nextTickTime = OptionalInt.empty();
+                try
+                {
+                    nextTickTime = queuedTask.task.Tick(tickEvent, network, currentTickTime, queuedTask.tickTime - currentTickTime);
+                }
+                catch (Exception ex)
+                {
+                    LogisticsWoW.LOGGER.error("Task tick failed.", ex);
+                    if(queuedTask.task instanceof ItemHoldingTask)
+                    {
+                        HandleLostItemStack(network, ((ItemHoldingTask) queuedTask.task).heldItemStack);
+                    }
+                }
                 if(nextTickTime.isPresent())
                 {
                     queuedTask.tickTime = nextTickTime.getAsInt();
@@ -142,5 +163,65 @@ public class WispTaskManager
                 tasks.add(begin, queuedTask);
             }
         }
+    }
+
+    public CompoundTag SerialiseNBT(WispNetwork network, int currentTickTime)
+    {
+        ListTag taskListNBT = new ListTag();
+
+        for(QueuedWispTask task : tasks)
+        {
+            if(task.task instanceof SerialisableWispTask)
+            {
+                SerialisableWispTask serialisableTask = (SerialisableWispTask)task.task;
+                CompoundTag taskNBT = serialisableTask.SerialiseNBT(network);
+                if(taskNBT != null)
+                {
+                    taskNBT.putInt("nextTickOffset", task.tickTime - currentTickTime);
+                    taskListNBT.add(taskNBT);
+                }
+            }
+        }
+
+        if(taskListNBT.isEmpty())
+        {
+            return null;
+        }
+        CompoundTag nbt = new CompoundTag();
+        nbt.put("taskList", taskListNBT);
+
+        return nbt;
+    }
+
+    public void DeserialiseNBT(WispNetwork network, int currentTickTime, CompoundTag nbt)
+    {
+        if(nbt == null)
+        {
+            return;
+        }
+        ListTag taskListNBT = nbt.getList("taskList", nbt.getId());
+        for(int i = 0; i < taskListNBT.size(); ++i)
+        {
+            CompoundTag taskNBT = taskListNBT.getCompound(i);
+            WispTask task = null;
+            try
+            {
+                task = WispTaskFactory.Read(network, taskNBT);
+                int tickOffset = taskNBT.getInt("nextTickOffset");
+                QueuedWispTask queuedWispTask = new QueuedWispTask();
+                queuedWispTask.tickTime = currentTickTime + tickOffset;
+                queuedWispTask.task = task;
+                tasks.add(queuedWispTask);
+            }
+            catch (Exception ex)
+            {
+                LogisticsWoW.LOGGER.error("Error loading task. Task NBT: \"{}\".", taskNBT.toString(), ex);
+                if(task instanceof ItemHoldingTask)
+                {
+                    HandleLostItemStack(network, ((ItemHoldingTask) task).heldItemStack);
+                }
+            }
+        }
+        tasks.sort(null);
     }
 }

@@ -1,7 +1,9 @@
 package com.settop.LogisticsWoW.Wisps;
 
 
+import com.settop.LogisticsWoW.WispNetwork.ReservableInventory;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -23,9 +25,9 @@ public abstract class WispInteractionNodeBase extends WispNode implements MenuPr
         //expect a load to follow
     }
 
-    public WispInteractionNodeBase(BlockPos inPos)
+    public WispInteractionNodeBase(ResourceLocation dim, BlockPos inPos)
     {
-        super(inPos);
+        super(dim, inPos);
     }
 
     public void RemoveFromWorld(Level level)
@@ -50,7 +52,7 @@ public abstract class WispInteractionNodeBase extends WispNode implements MenuPr
 
     public void Load(ResourceLocation inDim, CompoundTag nbt)
     {
-        super.Load(nbt);
+        super.Load(inDim, nbt);
     }
 
     public abstract String GetType();
@@ -59,4 +61,9 @@ public abstract class WispInteractionNodeBase extends WispNode implements MenuPr
     public abstract void UpdateFromContents();
     public abstract void SetConnectedBlockEntity(BlockEntity blockEntity);
     public abstract void ContainerExtraDataWriter(FriendlyByteBuf packetBuffer);
+
+    //active if the block this is connected to is loaded
+    public abstract boolean IsActive();
+    public abstract ReservableInventory GetReservableInventory(Direction direction);
+    public ReservableInventory GetReservableInventory() { return GetReservableInventory(null); }
 }

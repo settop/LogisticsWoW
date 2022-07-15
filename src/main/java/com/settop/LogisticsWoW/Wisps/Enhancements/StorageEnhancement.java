@@ -2,12 +2,14 @@ package com.settop.LogisticsWoW.Wisps.Enhancements;
 
 import com.settop.LogisticsWoW.GUI.SubMenus.StorageEnhancementSubMenu;
 import com.settop.LogisticsWoW.GUI.SubMenus.SubMenu;
+import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Constants;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.WispNetwork.*;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.TransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -69,7 +71,6 @@ public class StorageEnhancement implements IEnhancement
             {
                 return OptionalInt.empty();
             }
-            itemSink.CleanupInvalidReservations();
             if(RefreshItems() || extractionState != eExtractionState.ASLEEP || !doneFirstTick)
             {
                 doneFirstTick = true;
@@ -94,6 +95,7 @@ public class StorageEnhancement implements IEnhancement
                 else
                 {
                     //Ignore the tick offset whilst sleeping, don't care about missing some ticks whilst asleep
+                    //ToDo: Scale the sleep time based on how active this extraction is
                     return OptionalInt.of(currentTickTime + Constants.SLEEP_TICK_TIMER);
                 }
             }
@@ -105,26 +107,8 @@ public class StorageEnhancement implements IEnhancement
         }
     }
 
-    private static class ReservationPair
-    {
-        public final ItemSink.Reservation targetReservation;
-        public final ItemSource.Reservation selfReservation;
-
-        private ReservationPair(@Nonnull ItemSink.Reservation targetReservation, @Nonnull ItemSource.Reservation selfReservation)
-        {
-            this.targetReservation = targetReservation;
-            this.selfReservation = selfReservation;
-        }
-
-        public void SetInvalid()
-        {
-            targetReservation.SetInvalid();
-            selfReservation.SetInvalid();
-        }
-    }
     private class ItemTracker extends ItemSource
     {
-        ArrayList<ReservationPair> extractionReservations;
         final Item trackedItem;
 
         public ItemTracker(Item trackedItem)
@@ -134,52 +118,34 @@ public class StorageEnhancement implements IEnhancement
         }
 
         @Override
-        public void SetInvalid()
+        public ReservableInventory.Reservation ReserveExtract(int count)
         {
-            super.SetInvalid();
-            if(extractionReservations != null)
+            assert IsValid();
+            ReservableInventory inv = parentWisp.GetReservableInventory();
+            if(inv == null)
             {
-                extractionReservations.forEach(ReservationPair::SetInvalid);
+                LogisticsWoW.LOGGER.error("Trying to reserve an extract from a missing inventory");
+                return null;
             }
+            return inv.ReserveExtraction(trackedItem, count);
         }
 
         @Override
-        public ItemStack Extract(int count)
+        public ItemStack Extract(ReservableInventory.Reservation reservation, int count)
         {
-            return connectedItemHandler.map(itemHandler->
+            assert IsValid();
+            ReservableInventory inv = parentWisp.GetReservableInventory();
+            if(inv == null)
             {
-                int localCount = count;
-                ItemStack retItem = ItemStack.EMPTY;
-                for(int slot = 0; slot < itemHandler.getSlots() && localCount > 0; ++slot)
+                LogisticsWoW.LOGGER.error("Trying to extract from a missing inventory");
+                if(reservation != null)
                 {
-                    ItemStack slotStack = itemHandler.getStackInSlot(slot);
-                    if(slotStack.getItem() != trackedItem ||
-                            (!retItem.isEmpty() && !ItemHandlerHelper.canItemStacksStack(retItem, slotStack)))
-                    {
-                        continue;
-                    }
-                    ItemStack extractedStack = itemHandler.extractItem(slot, localCount, false);
-                    localCount -= extractedStack.getCount();
-                    if(retItem.isEmpty())
-                    {
-                        retItem = extractedStack;
-                    }
-                    else
-                    {
-                        retItem.grow(extractedStack.getCount());
-                    }
+                    reservation.SetInvalid();
                 }
-                return retItem;
-            }).orElse(ItemStack.EMPTY);
-        }
+                return null;
+            }
 
-        @Override
-        public ItemStack ReservedExtract(Reservation reservation)
-        {
-            assert reservation.IsValid();
-            extractionReservations.removeIf(pair->pair.selfReservation == reservation);
-
-            return Extract(reservation.reservationSize);
+            return inv.ExtractItems(reservation, trackedItem, count);
         }
 
         @Override
@@ -187,135 +153,47 @@ public class StorageEnhancement implements IEnhancement
         {
             return parentWisp;
         }
+
+        @Override
+        public Direction GetExtractionDirection() { return null; }
     }
 
     private class StorageItemSink extends ItemSink
     {
-        private class ItemReservation
-        {
-            private final ArrayList<Reservation> reservations = new ArrayList<>();
-            private int totalReservations = 0;
-        }
-        private final HashMap<Item, ItemReservation> itemReservations = new HashMap<>();
-        private IItemHandler reservationInventory;
-
         public StorageItemSink(int priority)
         {
             super(priority);
         }
 
-        private ItemStack AddItemStackToInv(IItemHandler inv, ItemStack stack)
-        {
-            stack = stack.copy();
-            for(int i = 0; i < inv.getSlots(); ++i)
-            {
-                stack = inv.insertItem(i, stack, true);
-                if(stack.isEmpty())
-                {
-                    break;
-                }
-            }
-            return stack;
-        }
-
         @Override
-        public Reservation ReserveInsert(ItemStack stack)
+        public ReservableInventory.Reservation ReserveInsert(ItemStack stack)
         {
             assert IsValid();
-            if(!connectedItemHandler.isPresent())
+            ReservableInventory inv = parentWisp.GetReservableInventory();
+            if(inv == null)
             {
+                LogisticsWoW.LOGGER.error("Trying to reserve an insert into a missing inventory");
                 return null;
             }
-            Optional<IItemHandler> itemHandlerOptional = connectedItemHandler.resolve();
-            if(itemHandlerOptional.isEmpty())
-            {
-                return null;
-            }
-
-            IItemHandler iItemHandler;
-            ItemStack originalStack = stack;
-
-            ItemReservation itemReservation = itemReservations.get(stack.getItem());
-            if(itemReservations.isEmpty() || (itemReservations.size() == 1 && itemReservation != null))
-            {
-                //either first reservation, or a reservation of the same items as before
-                iItemHandler = itemHandlerOptional.get();
-
-                stack = stack.copy();
-                //need to do all the reserved insertions as well to check there is additional room
-                int currentReserveCount = itemReservation == null ? 0 : itemReservation.totalReservations;
-                stack.setCount(originalStack.getCount() + currentReserveCount);
-            }
-            else
-            {
-                //need to use a placeholder fake inventory to do the insertion into
-                if(reservationInventory == null)
-                {
-                    reservationInventory = new SimulatedInventory(itemHandlerOptional.get());
-                    itemReservations.forEach((item, reservation)->AddItemStackToInv(reservationInventory, new ItemStack(item, reservation.totalReservations)));
-                }
-                iItemHandler = reservationInventory;
-            }
-
-            stack = AddItemStackToInv(iItemHandler, stack);
-            if(stack.getCount() < originalStack.getCount())
-            {
-                if(itemReservation == null)
-                {
-                    itemReservation = new ItemReservation();
-                    itemReservations.put(originalStack.getItem(), itemReservation);
-                }
-                //there is space for this
-                Reservation reservation = new Reservation(this, originalStack.getCount() - stack.getCount());
-                itemReservation.reservations.add(reservation);
-                itemReservation.totalReservations += reservation.reservationSize;
-                return reservation;
-            }
-            else
-            {
-                return null;
-            }
+            return inv.ReserveInsertion(stack);
         }
 
         @Override
-        public ItemStack Insert(ItemStack stack)
+        public ItemStack Insert(ReservableInventory.Reservation reservation, ItemStack stack)
         {
             assert IsValid();
-            if(!connectedItemHandler.isPresent())
+            ReservableInventory inv = parentWisp.GetReservableInventory();
+            if(inv == null)
             {
-                return null;
-            }
-            Optional<IItemHandler> itemHandlerOptional = connectedItemHandler.resolve();
-            if(itemHandlerOptional.isEmpty())
-            {
+                LogisticsWoW.LOGGER.error("Trying to insert into a missing inventory");
+                if(reservation != null)
+                {
+                    reservation.SetInvalid();
+                }
                 return null;
             }
 
-            IItemHandler iItemHandler = itemHandlerOptional.get();
-            for(int i = 0; i < iItemHandler.getSlots(); ++i)
-            {
-                stack = iItemHandler.insertItem(i, stack, false);
-                if(stack.isEmpty())
-                {
-                    break;
-                }
-            }
-            return stack;
-        }
-
-        @Override
-        public ItemStack ReservedInsert(Reservation reservation, ItemStack stack)
-        {
-            ItemReservation itemReservation = itemReservations.get(stack.getItem());
-            if(itemReservation != null)
-            {
-                if(itemReservation.reservations.remove(reservation))
-                {
-                    itemReservation.totalReservations -= reservation.reservationSize;
-                }
-            }
-            reservation.SetInvalid();
-            return Insert(stack);
+            return inv.InsertItems(reservation, stack);
         }
 
         @Override
@@ -326,39 +204,7 @@ public class StorageEnhancement implements IEnhancement
         }
 
         @Override
-        public void SetInvalid()
-        {
-            super.SetInvalid();
-            itemReservations.values().forEach(reservations->reservations.reservations.forEach(Reservation::SetInvalid));
-        }
-
-        public void CleanupInvalidReservations()
-        {
-            for(Iterator<ItemReservation> itemIt = itemReservations.values().iterator(); itemIt.hasNext();)
-            {
-                ItemReservation itemReservation = itemIt.next();
-                for(Iterator<Reservation> it = itemReservation.reservations.iterator(); it.hasNext();)
-                {
-                    Reservation reservation = it.next();
-                    if(!reservation.IsValid())
-                    {
-                        itemReservation.totalReservations -= reservation.reservationSize;
-                        it.remove();
-                        reservationInventory = null;
-                    }
-                }
-                if(itemReservation.reservations.isEmpty())
-                {
-                    itemIt.remove();
-                }
-            }
-        }
-
-        public void InventoryChanged()
-        {
-            //the connected inventory has changed, will need to recalculate the cached reservations
-            reservationInventory = null;
-        }
+        public Direction GetInsertDirection() { return null; }
     }
 
     public static final Factory FACTORY = new Factory();
@@ -368,6 +214,7 @@ public class StorageEnhancement implements IEnhancement
 
     //data player can tweak
     private int priority = 0;
+    private Direction invAccessDirection;
     private final FakeInventory filter = new FakeInventory(FILTER_SIZE, false);
     private final ArrayList<ResourceLocation> tagFilter = new ArrayList<>();
     private Constants.eFilterType filterType = Constants.eFilterType.Item;
@@ -380,7 +227,6 @@ public class StorageEnhancement implements IEnhancement
 
     //operation data
     private WispInteractionNodeBase parentWisp;
-    private LazyOptional<IItemHandler> connectedItemHandler;
     private final HashMap<Item, ItemTracker> itemSources = new HashMap<>();
     private StorageItemSink itemSink;
 
@@ -512,25 +358,17 @@ public class StorageEnhancement implements IEnhancement
     {
         if(blockEntity == null)
         {
-            connectedItemHandler = null;
             ClearNetworkData();
             return;
         }
 
         this.parentWisp = parentWisp;
-        LazyOptional<IItemHandler> nextItemHandler = blockEntity.getCapability(ITEM_HANDLER_CAPABILITY);
-        if(nextItemHandler != connectedItemHandler)
+        ReservableInventory inv = parentWisp.GetReservableInventory();
+        if(inv == null)
         {
-            connectedItemHandler = nextItemHandler;
-            connectedItemHandler.addListener(invalidOptional ->
-            {
-                if (connectedItemHandler == invalidOptional)
-                {
-                    connectedItemHandler = null;
-                    ClearNetworkData();
-                }
-            });
+            return;
         }
+
         if(currentTask == null)
         {
             currentTask = new PeriodicTask();
@@ -610,8 +448,11 @@ public class StorageEnhancement implements IEnhancement
     private boolean RefreshItems()
     {
         itemSources.values().forEach(ItemSource::Reset);
-        connectedItemHandler.ifPresent(iItemHandler ->
+        ReservableInventory inv = parentWisp.GetReservableInventory(invAccessDirection);
+        if(inv != null)
         {
+            inv.RefreshCache();
+            IItemHandler iItemHandler = inv.GetSimulatedInv();
             for(int slot = 0; slot < iItemHandler.getSlots(); ++slot)
             {
                 ItemStack slotStack = iItemHandler.getStackInSlot(slot);
@@ -623,7 +464,7 @@ public class StorageEnhancement implements IEnhancement
                 ItemSource itemSource = itemSources.computeIfAbsent(slotStack.getItem(), ItemTracker::new);
                 itemSource.UpdateNumAvailable(itemSource.GetNumAvailable() + slotStack.getCount());
             }
-        });
+        }
         boolean anyChanges = false;
         for(Iterator<ItemTracker> it = itemSources.values().iterator(); it.hasNext();)
         {
@@ -642,7 +483,6 @@ public class StorageEnhancement implements IEnhancement
 
         if(anyChanges)
         {
-            itemSink.InventoryChanged();
             parentWisp.connectedNetwork.GetItemManagement().AddItemSources(itemSources);
         }
         return anyChanges;
@@ -663,6 +503,7 @@ public class StorageEnhancement implements IEnhancement
     {
         //first find an item we are not extracting that we want to extract
         eExtractionState fallbackState = eExtractionState.ASLEEP;
+        ReservableInventory inv = parentWisp.GetReservableInventory();
         for(Map.Entry<Item, ItemTracker> entry : itemSources.entrySet())
         {
             Item item = entry.getKey();
@@ -672,58 +513,45 @@ public class StorageEnhancement implements IEnhancement
                 continue;
             }
 
-            int queuedExtractionAmount = 0;
-            if(tracker.extractionReservations != null)
-            {
-                for(Iterator<ReservationPair> it = tracker.extractionReservations.iterator(); it.hasNext();)
-                {
-                    ReservationPair reservation = it.next();
-                    if(reservation.targetReservation.IsValid() && reservation.selfReservation.IsValid())
-                    {
-                        queuedExtractionAmount += reservation.targetReservation.reservationSize;
-                    }
-                    else
-                    {
-                        reservation.SetInvalid();
-                        it.remove();
-                    }
-                }
-            }
-            if(queuedExtractionAmount >= tracker.GetNumAvailable())
-            {
-                continue;
-            }
             fallbackState = eExtractionState.NO_DESTINATION;
 
-            ItemSink.Reservation reservation;
-            int idealExtractionCount = tracker.GetNumAvailable() - queuedExtractionAmount;
+            int idealExtractionCount = tracker.GetNumAvailable();
             CarryWisp reservedCarryWisp = parentWisp.connectedNetwork.TryReserveCarryWisp(parentWisp, idealExtractionCount);
             if(reservedCarryWisp == null)
             {
                 continue;
             }
             ItemStack testStack = new ItemStack(item, Math.min(idealExtractionCount, reservedCarryWisp.GetCarryCapacity()));
+            SourcedReservation insertReservation;
             if(effectiveFilterType == Constants.eFilterType.Default)
             {
-                reservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, Integer.MIN_VALUE, priority, true );
+                insertReservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, Integer.MIN_VALUE, priority, true );
             }
             else
             {
-                reservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, priority, priority, false );
+                insertReservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, priority, priority, false );
             }
-            if(reservation == null)
+            if(insertReservation == null)
             {
                 reservedCarryWisp.ReleaseReservation();
                 continue;
             }
-            reservedCarryWisp.Claim();
-            if(tracker.extractionReservations == null)
+            ReservableInventory.Reservation selfExtractReservation = inv.ReserveExtraction(testStack.getItem(), insertReservation.reservation.reservedCount);
+            if(selfExtractReservation == null)
             {
-                tracker.extractionReservations = new ArrayList<>();
+                insertReservation.reservation.SetInvalid();
+                reservedCarryWisp.ReleaseReservation();
+                continue;
             }
-            ItemSource.Reservation selfReservation = new ItemSource.Reservation(tracker,  reservation.reservationSize);
-            tracker.extractionReservations.add(new ReservationPair(reservation, selfReservation));
-            parentWisp.connectedNetwork.StartTask(new TransferTask(reservedCarryWisp, selfReservation, reservation));
+            reservedCarryWisp.Claim();
+
+            parentWisp.connectedNetwork.StartTask(new TransferTask
+                    (
+                            item,
+                            reservedCarryWisp,
+                            new SourcedReservation(selfExtractReservation, parentWisp, invAccessDirection),
+                            insertReservation
+                    ));
             return eExtractionState.ACTIVE;
         }
         return fallbackState;

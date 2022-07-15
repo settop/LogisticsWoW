@@ -112,7 +112,7 @@ public class ChunkWisps
             ListTag nodes = nbt.getList("nodes", nbt.getId());
             for(int i = 0; i < nodes.size(); ++i)
             {
-                unregisteredNodes.add(WispNode.ReadNode(nodes.getCompound(i)));
+                unregisteredNodes.add(WispNode.ReadNode(dim, nodes.getCompound(i)));
             }
         }
     }

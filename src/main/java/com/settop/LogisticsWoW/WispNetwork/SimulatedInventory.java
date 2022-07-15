@@ -21,6 +21,11 @@ public class SimulatedInventory extends InvWrapper
             this.wrappedItemHandler = wrappedItemHandler;
         }
 
+        public void Reset()
+        {
+            modifiedSlots.clear();
+        }
+
         @Override
         public int getContainerSize()
         {
@@ -76,15 +81,15 @@ public class SimulatedInventory extends InvWrapper
                 {
                     return wrappedStack;
                 }
-                modifiedSlotStack = modifiedSlots.put(slot, wrappedStack.copy());
+                modifiedSlotStack = wrappedStack.copy();
+                modifiedSlots.put(slot, modifiedSlotStack);
             }
-            assert modifiedSlotStack != null;
             assert wrappedStack.sameItem(modifiedSlotStack);
 
             int removedCount = Math.min(count, modifiedSlotStack.getCount());
 
-            modifiedSlotStack.setCount(modifiedSlotStack.getCount() - removedCount);
             ItemStack retStack = modifiedSlotStack.copy();
+            modifiedSlotStack.setCount(modifiedSlotStack.getCount() - removedCount);
             retStack.setCount(removedCount);
             return retStack;
         }
@@ -123,6 +128,12 @@ public class SimulatedInventory extends InvWrapper
     public SimulatedInventory(IItemHandler wrappedItemHandler)
     {
         super(new SimulatedContainer(wrappedItemHandler));
+    }
+
+    public void Reset()
+    {
+        SimulatedContainer container = (SimulatedContainer)getInv();
+        container.Reset();
     }
 
     //turn off the simulation insertion here

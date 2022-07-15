@@ -35,7 +35,7 @@ public class WispNetworkItemManagement
             itemSink.sort((l, r)->r.priority - l.priority);
         }
 
-        public ItemSink.Reservation ReserveSpaceInBestSink(ItemStack stack, int minPriority)
+        public SourcedReservation ReserveSpaceInBestSink(ItemStack stack, int minPriority)
         {
             for(Iterator<ItemSink> it = itemSink.iterator(); it.hasNext();)
             {
@@ -50,10 +50,10 @@ public class WispNetworkItemManagement
                     //since this is sorted all other sinks will be equal or lower priority than this one
                     break;
                 }
-                ItemSink.Reservation reservation = sink.ReserveInsert(stack);
+                ReservableInventory.Reservation reservation = sink.ReserveInsert(stack);
                 if(reservation != null)
                 {
-                    return reservation;
+                    return new SourcedReservation(reservation, sink.GetAttachedInteractionNode(), sink.GetInsertDirection());
                 }
             }
             return null;
@@ -172,17 +172,17 @@ public class WispNetworkItemManagement
     }
 
 
-    public ItemSink.Reservation  ReserveSpaceInBestSink(ItemStack stack)
+    public SourcedReservation ReserveSpaceInBestSink(ItemStack stack)
     {
         return ReserveSpaceInBestSink(stack, Integer.MIN_VALUE, Integer.MIN_VALUE, true);
     }
-    public ItemSink.Reservation ReserveSpaceInBestSink(ItemStack stack, int minPriority, int minDefaultPriority, boolean allowDefault)
+    public SourcedReservation ReserveSpaceInBestSink(ItemStack stack, int minPriority, int minDefaultPriority, boolean allowDefault)
     {
         //Maybe this should return an array of all valid item sinks at the highest priority?
         ItemSinkCollection itemCollection = itemSinkCollectionItem.get(stack.getItem());
         if(itemCollection != null)
         {
-            ItemSink.Reservation reservedSink = itemCollection.ReserveSpaceInBestSink(stack, minPriority);
+            SourcedReservation reservedSink = itemCollection.ReserveSpaceInBestSink(stack, minPriority);
             if(reservedSink != null)
             {
                 return reservedSink;

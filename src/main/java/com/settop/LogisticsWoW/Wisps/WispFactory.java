@@ -13,7 +13,7 @@ public class WispFactory
     {
         switch (type)
         {
-            case WispConstants.WISP_INTERACTION_NODE: return new WispInteractionNode(inPos);
+            case WispConstants.WISP_INTERACTION_NODE: return new WispInteractionNode(dim, inPos);
             default: throw new RuntimeException(type + " is not a valid wisp type");
         }
     }

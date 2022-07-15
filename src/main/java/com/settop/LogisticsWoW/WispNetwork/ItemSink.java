@@ -2,21 +2,11 @@ package com.settop.LogisticsWoW.WispNetwork;
 
 import com.settop.LogisticsWoW.Utils.Invalidable;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
+import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 
 public abstract class ItemSink extends Invalidable
 {
-    public static class Reservation extends Invalidable
-    {
-        public final ItemSink sourceSink;
-        public final int reservationSize;
-        public Reservation(ItemSink sourceSink, int reservationSize)
-        {
-            assert reservationSize > 0;
-            this.sourceSink = sourceSink;
-            this.reservationSize = reservationSize;
-        }
-    }
     public final int priority;
 
     public ItemSink(int priority)
@@ -25,8 +15,8 @@ public abstract class ItemSink extends Invalidable
     }
 
     //returns the reservation or null is no reservation was made
-    abstract public Reservation ReserveInsert(ItemStack stack);
-    abstract public ItemStack Insert(ItemStack stack);
-    abstract public ItemStack ReservedInsert(Reservation reservation, ItemStack stack);
+    abstract public ReservableInventory.Reservation ReserveInsert(ItemStack stack);
+    abstract public ItemStack Insert(ReservableInventory.Reservation reservation, ItemStack stack);
     abstract public WispInteractionNodeBase GetAttachedInteractionNode();
+    abstract public Direction GetInsertDirection();
 }

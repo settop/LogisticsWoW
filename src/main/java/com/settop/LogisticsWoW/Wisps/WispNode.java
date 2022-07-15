@@ -56,6 +56,7 @@ public class WispNode
         public float distToDestination;
     }
 
+    private ResourceLocation dim;
     private BlockPos pos;
     public int autoConnectRange = 0;
     public ArrayList<Connection> connectedNodes;
@@ -73,8 +74,9 @@ public class WispNode
         //expect the pos and dim to be set shortly
         connectedNodes = new ArrayList<>();
     }
-    public WispNode(BlockPos pos)
+    public WispNode(ResourceLocation dim, BlockPos pos)
     {
+        this.dim = dim;
         this.pos = pos;
         connectedNodes = new ArrayList<>();
     }
@@ -88,6 +90,10 @@ public class WispNode
         autoConnectRange = range;
     }
 
+    public ResourceLocation GetDim()
+    {
+        return dim;
+    }
     public BlockPos GetPos()
     {
         return pos;
@@ -206,8 +212,9 @@ public class WispNode
         return nbt;
     }
 
-    public void Load(CompoundTag nbt)
+    public void Load(ResourceLocation dim, CompoundTag nbt)
     {
+        this.dim = dim;
         pos = NbtUtils.readBlockPos(nbt.getCompound("pos"));
         autoConnectRange = nbt.getInt("autoConnectRange");
 
@@ -243,10 +250,10 @@ public class WispNode
         }
     }
 
-    public static WispNode ReadNode(CompoundTag nbt)
+    public static WispNode ReadNode(ResourceLocation dim, CompoundTag nbt)
     {
         WispNode node = new WispNode();
-        node.Load(nbt);
+        node.Load(dim, nbt);
         return node;
     }
 
