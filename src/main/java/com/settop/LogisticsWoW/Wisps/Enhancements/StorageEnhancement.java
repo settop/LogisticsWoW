@@ -423,6 +423,12 @@ public class StorageEnhancement implements IEnhancement
         }
     }
 
+    @Override
+    public WispInteractionNodeBase GetAttachedInteractionNode()
+    {
+        return parentWisp;
+    }
+
     private void UpdateFilterCache()
     {
         filteredItems.clear();

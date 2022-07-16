@@ -10,15 +10,21 @@ import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Constants;
 import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.Utils.StringVariableArrayReferenceHolder;
+import com.settop.LogisticsWoW.WispNetwork.ReservableInventory;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import com.settop.LogisticsWoW.Wisps.Enhancements.StorageEnhancement;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.Container;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSubMenu
 {
@@ -33,6 +39,9 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
 
     public static final int PRIORITY_PROPERTY_ID = 0;
     public static final int FILTER_TYPE_PROPERTY_ID = 1;
+
+    //not real properties, just used to trigger things
+    public static final int POLYMORPHIC_PROPERTY_ID = 100;
 
     public static final int FILTER_TAGS_STRING_PROPERTY_ID = 0;
 
@@ -90,6 +99,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
         {
             case PRIORITY_PROPERTY_ID -> priority.set(value);
             case FILTER_TYPE_PROPERTY_ID -> filterType.set(value);
+            case POLYMORPHIC_PROPERTY_ID -> DoPolymorphicFilterSet();
         }
     }
 
@@ -167,6 +177,49 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
         }
     }
 
+    private void DoPolymorphicFilterSet()
+    {
+        WispInteractionNodeBase node = GetConnectedNode();
+        if(node == null)
+        {
+            return;
+        }
+        ReservableInventory inv = node.GetReservableInventory();
+        if(inv == null)
+        {
+            return;
+        }
+
+        HashSet<Item> currentFilteredItems = new HashSet<>();
+        for(int i = 0; i < filter.getContainerSize(); ++i)
+        {
+            ItemStack filteredItem = filter.getItem(i);
+            if(filteredItem.isEmpty())
+            {
+                continue;
+            }
+            currentFilteredItems.add(filteredItem.getItem());
+        }
+
+        for(int i = 0; i < inv.GetSimulatedInv().getSlots(); ++i)
+        {
+            ItemStack stack = inv.GetSimulatedInv().getStackInSlot(i);
+            if(stack.isEmpty() || currentFilteredItems.contains(stack.getItem()))
+            {
+                continue;
+            }
+            //need to add it
+            for(Slot slot : inventorySlots)
+            {
+                if(slot.container != filter || slot.hasItem())
+                {
+                    continue;
+                }
+                slot.set(stack);
+                break;
+            }
+        }
+    }
 
     public BlockState GetBlockState() { return blockState; }
 
@@ -178,6 +231,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
         return (FakeSlot)inventorySlots.get(filter.getContainerSize());
     }
 
+    public FakeInventory GetFilterInventory() { return filter; }
     public ArrayList<String> GetFilterTags()
     {
         return tagFilters.getArray();
@@ -199,5 +253,14 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
         this.filterType.set(filterType.ordinal());
         //make sure to refresh this
         SetActive(isActive);
+    }
+
+    public WispInteractionNodeBase GetConnectedNode()
+    {
+        if(currentEnhancement != null)
+        {
+            return currentEnhancement.GetAttachedInteractionNode();
+        }
+        return null;
     }
 }

@@ -16,6 +16,7 @@
     "logwow.default_store": "Default Store",
     "logwow.non_default_store": "Filtered Store",
     "logwow.priority": "Priority",
+    "logwow.filter_add_contents": "Add missing item filter from inventory",
 	
 	"logwow.tooltip.insert_hint":"Sneak right click on a block to insert wisp",
 	"logwow.tooltip.enchant_hint":"Can be enchanted",

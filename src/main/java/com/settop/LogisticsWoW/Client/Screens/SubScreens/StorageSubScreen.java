@@ -8,6 +8,8 @@ import com.settop.LogisticsWoW.Client.Screens.Popups.PriorityPopup;
 import com.settop.LogisticsWoW.Client.Screens.Widgets.NumberSpinner;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Constants;
+import com.settop.LogisticsWoW.WispNetwork.ReservableInventory;
+import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.narration.NarratedElementType;
@@ -20,6 +22,8 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -38,6 +42,7 @@ import com.settop.LogisticsWoW.Wisps.Enhancements.StorageEnhancement;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 @OnlyIn(Dist.CLIENT)
 public class StorageSubScreen extends SubScreen
@@ -60,7 +65,7 @@ public class StorageSubScreen extends SubScreen
         }
 
         @Override
-        public void renderToolTip(PoseStack matrixStack, int mouseX, int mouseY)
+        public void renderToolTip(@NotNull PoseStack matrixStack, int mouseX, int mouseY)
         {
             GetParentScreen().renderTooltip(matrixStack, new TranslatableComponent("logwow.priority"), mouseX, mouseY);
         }
@@ -107,6 +112,8 @@ public class StorageSubScreen extends SubScreen
             }
             providerContainer.SetFilterType(Constants.eFilterType.values()[nextValue]);
             LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.FILTER_TYPE_PROPERTY_ID,  nextValue));
+
+            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Item;
         }
 
         @Override
@@ -165,6 +172,33 @@ public class StorageSubScreen extends SubScreen
         }
     }
 
+    public class PolymorphicFilterButton extends SmallButton
+    {
+        private int lastTextWidth = 8;
+
+        public PolymorphicFilterButton(int x, int y)
+        {
+            super(x, y, 16, new TextComponent(""));
+        }
+
+        @Override
+        public void onPress()
+        {
+            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.POLYMORPHIC_PROPERTY_ID,  1));
+        }
+
+        @Override
+        public void renderToolTip(@NotNull PoseStack matrixStack, int mouseX, int mouseY)
+        {
+            GetParentScreen().renderTooltip(matrixStack, new TranslatableComponent("logwow.filter_add_contents"), mouseX, mouseY);
+        }
+
+        @Override
+        public void RenderOverlay(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
+        {
+        }
+    }
+
     public class FilterTags extends TagListSelection
     {
 
@@ -199,6 +233,7 @@ public class StorageSubScreen extends SubScreen
     private PriorityPopup priorityPopup;
     private PriorityButton priorityButton;
     private FilterTypeCycle filterTypeCycle;
+    private PolymorphicFilterButton polymorphicFilterButton;
     private FilterTags tagSelection;
 
 
@@ -244,6 +279,7 @@ public class StorageSubScreen extends SubScreen
 
         priorityButton = AddWidget(new PriorityButton(guiLeft + xPos, guiTop + yPos ));
         filterTypeCycle = AddWidget(new FilterTypeCycle(guiLeft + xPos, guiTop + yPos + 16));
+        polymorphicFilterButton = AddWidget(new PolymorphicFilterButton(guiLeft + xPos, guiTop + yPos + 56));
     }
 
     @Override
@@ -279,6 +315,7 @@ public class StorageSubScreen extends SubScreen
 
             priorityButton.active = priorityButton.visible = active;
             filterTypeCycle.active = filterTypeCycle.visible = active;
+            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Item;
         }
 
         tagSelection.active = tagSelection.visible = active && (providerContainer.GetFilterType() == Constants.eFilterType.Tag);

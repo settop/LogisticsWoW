@@ -24,4 +24,5 @@ public interface IEnhancement
     EnhancementTypes GetType();
     void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn);
     void Setup(WispInteractionNodeBase parentWisp, BlockEntity blockEntity);
+    WispInteractionNodeBase GetAttachedInteractionNode();
 }
