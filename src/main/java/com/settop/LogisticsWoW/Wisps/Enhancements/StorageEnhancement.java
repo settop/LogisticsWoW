@@ -514,10 +514,7 @@ public class StorageEnhancement implements IEnhancement
         {
             Item item = entry.getKey();
             ItemTracker tracker = entry.getValue();
-            if(MatchesFilter(item))
-            {
-                continue;
-            }
+            boolean matchesFilter = MatchesFilter(item);
 
             fallbackState = eExtractionState.NO_DESTINATION;
 
@@ -535,7 +532,7 @@ public class StorageEnhancement implements IEnhancement
             }
             else
             {
-                insertReservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, priority, priority, false );
+                insertReservation = parentWisp.connectedNetwork.GetItemManagement().ReserveSpaceInBestSink(testStack, matchesFilter ? priority : Integer.MIN_VALUE, 0, false );
             }
             if(insertReservation == null)
             {
