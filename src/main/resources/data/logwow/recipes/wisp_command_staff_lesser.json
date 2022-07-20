@@ -1,0 +1,19 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern":
+    [
+      "  y",
+      " x ",
+      "x  "
+    ],
+    "key":
+    {
+      "x": { "tag": "forge:ingots/gold" },
+      "y": { "tag": "forge:gems/amethyst" }
+    },
+    "result":
+    {
+      "item": "logwow:wisp_command_staff_lesser",
+      "count": 1
+    }
+}

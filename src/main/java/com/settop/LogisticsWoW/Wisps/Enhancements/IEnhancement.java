@@ -16,13 +16,15 @@ public interface IEnhancement
     interface IFactory
     {
         IEnhancement Create();
-        SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity);
+        SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp);
     }
 
     CompoundTag SerializeNBT();
     void DeserializeNBT(CompoundTag nbt);
     EnhancementTypes GetType();
     void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn);
-    void Setup(WispInteractionNodeBase parentWisp, BlockEntity blockEntity);
+    void Setup(WispInteractionNodeBase parentWisp);
+    void OnConnectToNetwork();
+    void OnDisconnectFromNetwork();
     WispInteractionNodeBase GetAttachedInteractionNode();
 }

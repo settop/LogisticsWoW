@@ -4,8 +4,12 @@
 
     "item.logwow.wisp": "Lesser Wisp Interaction Node",
     "item.logwow.wisp_storage_enhancement": "Storage Enhancement",
+    "item.logwow.wisp_command_staff_lesser": "Lesser Wisp Command Staff",
+    "item.logwow.wisp_command_staff_basic": "Wisp Command Staff",
+    "item.logwow.wisp_command_staff_greater": "Greater Wisp Command Staff",
 
     "container.logwow.basic_wisp_menu": "Wisp",
+    "container.logwow.command_staff": "Wisp Command Staff",
 
     "logwow.wisp_contents": "Enhancements",
     "logwow.side_config": "Side Config",

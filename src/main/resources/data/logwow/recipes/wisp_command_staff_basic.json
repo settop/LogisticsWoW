@@ -1,0 +1,20 @@
+{
+    "type": "logwow:crafting_special_command_staff_upgrade",
+    "pattern":
+    [
+      " zy",
+      " xz",
+      "x  "
+    ],
+    "key":
+    {
+      "x": { "tag": "forge:gems/diamond" },
+      "y": { "item": "logwow:wisp_command_staff_lesser" },
+      "z": { "tag": "forge:gems/amethyst" }
+    },
+    "result":
+    {
+      "item": "logwow:wisp_command_staff_basic",
+      "count": 1
+    }
+}

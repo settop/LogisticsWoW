@@ -2,11 +2,13 @@ package com.settop.LogisticsWoW;
 
 import com.settop.LogisticsWoW.BlockEntities.WispConnectionNodeBlockEntity;
 import com.settop.LogisticsWoW.BlockEntities.WispCoreBlockEntity;
+import com.settop.LogisticsWoW.DataGen.CommandStaffUpgradeRecipe;
 import com.settop.LogisticsWoW.GUI.BasicWispMenu;
+import com.settop.LogisticsWoW.GUI.CommandStaffMenu;
 import com.settop.LogisticsWoW.GUI.Network.GUIClientMessageHandler;
 import com.settop.LogisticsWoW.GUI.Network.GUIServerMessageHandler;
 import com.settop.LogisticsWoW.GUI.Network.Packets.*;
-import com.settop.LogisticsWoW.Items.BasicWispItem;
+import com.settop.LogisticsWoW.Items.WispCommandStaff;
 import com.settop.LogisticsWoW.Items.WispEnhancementItem;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.TransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskFactory;
@@ -15,6 +17,10 @@ import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.crafting.MapCloningRecipe;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.item.crafting.SimpleRecipeSerializer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.BlockItem;
@@ -25,6 +31,7 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.common.capabilities.CapabilityToken;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
+import net.minecraftforge.common.crafting.IShapedRecipe;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -71,6 +78,7 @@ public class LogisticsWoW
         Blocks.BLOCKS.register( FMLJavaModLoadingContext.get().getModEventBus() );
         BlockEntities.BLOCK_ENTITIES.register( FMLJavaModLoadingContext.get().getModEventBus() );
         Items.ITEMS.register( FMLJavaModLoadingContext.get().getModEventBus() );
+        RecipeSerializers.SERIALIZERS.register( FMLJavaModLoadingContext.get().getModEventBus() );
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
@@ -124,6 +132,7 @@ public class LogisticsWoW
     public static class Menus
     {
         public static MenuType<BasicWispMenu> BASIC_WISP_MENU;
+        public static MenuType<CommandStaffMenu> COMMAND_STAFF_MENU;
     }
 
     @SubscribeEvent
@@ -154,6 +163,10 @@ public class LogisticsWoW
             Menus.BASIC_WISP_MENU = IForgeMenuType.create(BasicWispMenu::CreateMenu);
             Menus.BASIC_WISP_MENU.setRegistryName("basic_wisp_menu");
             event.getRegistry().register(Menus.BASIC_WISP_MENU);
+
+            Menus.COMMAND_STAFF_MENU = IForgeMenuType.create(CommandStaffMenu::CreateMenu);
+            Menus.COMMAND_STAFF_MENU.setRegistryName("command_staff_menu");
+            event.getRegistry().register(Menus.COMMAND_STAFF_MENU);
         }
     }
 
@@ -189,8 +202,17 @@ public class LogisticsWoW
         public static final RegistryObject<Item> WISP_CONNECTION_NODE_ITEM = ITEMS.register("wisp_connection_node", ()->{ return new BlockItem( Blocks.WISP_CONNECTION_NODE.get(), new Item.Properties().tab(CreativeModeTab.TAB_MISC) ); });
 
         // Items
-        public static final RegistryObject<Item> WISP_ITEM = ITEMS.register("wisp", BasicWispItem::new );
+        public static final RegistryObject<Item> WISP_COMMAND_STAFF_LESSER_ITEM = ITEMS.register("wisp_command_staff_lesser", ()-> new WispCommandStaff(1) );
+        public static final RegistryObject<Item> WISP_COMMAND_STAFF_BASIC_ITEM = ITEMS.register("wisp_command_staff_basic", ()-> new WispCommandStaff(2) );
+        public static final RegistryObject<Item> WISP_COMMAND_STAFF_GREATER_ITEM = ITEMS.register("wisp_command_staff_greater", ()-> new WispCommandStaff(3) );
         public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(EnhancementTypes.STORAGE) );
 
+    }
+
+    public static class RecipeSerializers
+    {
+        public static final DeferredRegister<RecipeSerializer<?>> SERIALIZERS = DeferredRegister.create(ForgeRegistries.RECIPE_SERIALIZERS, LogisticsWoW.MOD_ID);
+
+        public static final RegistryObject<RecipeSerializer<?>> COMMAND_STAFF_UPGRADE = SERIALIZERS.register("crafting_special_command_staff_upgrade", CommandStaffUpgradeRecipe.Serializer::new );
     }
 }

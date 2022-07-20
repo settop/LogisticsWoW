@@ -3,6 +3,7 @@ package com.settop.LogisticsWoW.Client;
 import com.mojang.blaze3d.platform.ScreenManager;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -49,5 +50,6 @@ public class ClientStartup
     public static void onClientSetupEvent(FMLClientSetupEvent event)
     {
         MenuScreens.register(LogisticsWoW.Menus.BASIC_WISP_MENU, BasicWispContainerScreen::new);
+        MenuScreens.register(LogisticsWoW.Menus.COMMAND_STAFF_MENU, ContainerScreen::new);
     }
 }

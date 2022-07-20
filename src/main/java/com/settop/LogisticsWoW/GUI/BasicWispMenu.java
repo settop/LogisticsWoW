@@ -1,6 +1,7 @@
 package com.settop.LogisticsWoW.GUI;
 
 import com.settop.LogisticsWoW.GUI.SubMenus.*;
+import com.settop.LogisticsWoW.Items.WispCommandStaff;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.BoolArray;
 import com.settop.LogisticsWoW.Wisps.WispInteractionContents;
@@ -9,6 +10,7 @@ import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
@@ -16,6 +18,8 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -23,43 +27,51 @@ import java.util.List;
 
 public class BasicWispMenu extends MultiScreenMenu implements WispInteractionContents.OnEnhancementChanged
 {
-    private WispInteractionContents wispContents;
-    private WispInteractionNodeBase parentWisp;
-    private BlockState blockState;
-    private BlockEntity blockEntity;
-    private DataSlot openSubContainerIndex;
-    private List<SubMenu> tabbedContainers;
-    private PlayerInventorySubMenu playerInvSubMenu;
-    private BoolArray enhancementPresent;
+    private final WispInteractionContents wispContents;
+    private final WispInteractionNodeBase parentWisp;
+    private final BlockState blockState;
+    private final BlockEntity blockEntity;
+    private final DataSlot openSubContainerIndex;
+    private final List<SubMenu> tabbedContainers;
+    private final CommandStaffInvSubMenu commandStaffInvSubMenu;
+    private final PlayerInventorySubMenu playerInvSubMenu;
+    private final BoolArray enhancementPresent;
 
     public static BasicWispMenu CreateMenu(int id, Inventory playerInventory, FriendlyByteBuf extraData)
     {
         int contentsSize = extraData.readInt();
         BlockPos pos = extraData.readBlockPos();
+        int staffSlot = extraData.readInt();
+        int staffInvSize = extraData.readInt();
+
         BlockState blockState = playerInventory.player.level.getBlockState(pos);
         BlockEntity blockEntity = playerInventory.player.level.getBlockEntity(pos);
-        return new BasicWispMenu(id, playerInventory, null, new WispInteractionContents( contentsSize ), null, blockState, blockEntity);
+        Container staffPlaceholderContainer = new WispCommandStaff.StaffContainer(staffInvSize);
+
+        return new BasicWispMenu(id, playerInventory, null, new WispInteractionContents( contentsSize ), null, blockState, blockEntity, new InvWrapper(staffPlaceholderContainer), staffSlot);
     }
 
-    public static BasicWispMenu CreateMenu(int id, Inventory playerInventory, Player player, WispInteractionContents inWispContents, WispInteractionNodeBase inParentWisp)
+    public static BasicWispMenu CreateMenu(int id, Inventory playerInventory, Player player, WispInteractionContents inWispContents, WispInteractionNodeBase inParentWisp, IItemHandler staffInv, int staffSlot)
     {
         BlockPos pos = inParentWisp.GetPos();
         BlockState blockState = playerInventory.player.level.getBlockState(pos);
         BlockEntity blockEntity = playerInventory.player.level.getBlockEntity(pos);
-        return new BasicWispMenu(id, playerInventory, player, inWispContents, inParentWisp, blockState, blockEntity);
+        return new BasicWispMenu(id, playerInventory, player, inWispContents, inParentWisp, blockState, blockEntity, staffInv, staffSlot);
     }
 
 
     public static final int WISP_SLOT_XPOS = 3;
     public static final int WISP_SLOT_YPOS = 16;
     public static final int PLAYER_INVENTORY_XPOS = 3;
-    public static final int PLAYER_INVENTORY_YPOS = 101;
+    public static final int PLAYER_INVENTORY_YPOS = 119;
+    public static final int STAFF_INVENTORY_YPOS = 101;
 
-    private BasicWispMenu(int id, Inventory playerInventory, Player player, WispInteractionContents inWispContents, WispInteractionNodeBase inParentWisp, BlockState inBlockState, BlockEntity inBlockEntity)
+    private BasicWispMenu(int id, Inventory playerInventory, Player player, WispInteractionContents inWispContents, WispInteractionNodeBase inParentWisp, BlockState inBlockState, BlockEntity inBlockEntity, IItemHandler staffInv, int staffSlot)
     {
         super(LogisticsWoW.Menus.BASIC_WISP_MENU, id, player);
 
-        playerInvSubMenu = new PlayerInventorySubMenu(playerInventory, PLAYER_INVENTORY_XPOS, PLAYER_INVENTORY_YPOS);
+        commandStaffInvSubMenu = new CommandStaffInvSubMenu(staffInv, PLAYER_INVENTORY_XPOS, STAFF_INVENTORY_YPOS);
+        playerInvSubMenu = new PlayerInventorySubMenu(playerInventory, PLAYER_INVENTORY_XPOS, PLAYER_INVENTORY_YPOS, staffSlot);
         WispContentsMenu wispContentsContainer = new WispContentsMenu(inWispContents, WISP_SLOT_XPOS, WISP_SLOT_YPOS);
 
         wispContents = inWispContents;
@@ -77,12 +89,13 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
         tabbedContainers.add(wispContentsContainer);
         for(int i = 0; i < EnhancementTypes.NUM; ++i)
         {
-            SubMenu enhancementSubContainer = EnhancementTypes.values()[i].GetFactory().CreateSubMenu(0, 0, blockState, blockEntity);
+            SubMenu enhancementSubContainer = EnhancementTypes.values()[i].GetFactory().CreateSubMenu(0, 0, blockState, blockEntity, parentWisp);
             enhancementSubContainer.SetActive(false);
             tabbedContainers.add(enhancementSubContainer);
         }
 
         List<SubMenu> subContainers = new ArrayList<>();
+        subContainers.add(commandStaffInvSubMenu);
         subContainers.add(playerInvSubMenu);
         subContainers.addAll(tabbedContainers);
         SetSubContainers(subContainers);
@@ -101,7 +114,7 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
     }
 
     @Override
-    public ItemStack quickMoveStack(Player playerEntity, int sourceSlotIndex)
+    public @NotNull ItemStack quickMoveStack(@NotNull Player playerEntity, int sourceSlotIndex)
     {
         Slot sourceSlot = slots.get(sourceSlotIndex);
         if (sourceSlot == null || !sourceSlot.hasItem()) return ItemStack.EMPTY;
@@ -109,7 +122,7 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
         ItemStack copyOfSourceStack = sourceStack.copy();
 
         //first slots are player inventory
-        int playerInvSlotCount = playerInvSubMenu.inventorySlots.size();
+        int playerInvSlotCount = playerInvSubMenu.inventorySlots.size() + commandStaffInvSubMenu.inventorySlots.size();
 
         if(sourceSlotIndex < playerInvSlotCount)
         {

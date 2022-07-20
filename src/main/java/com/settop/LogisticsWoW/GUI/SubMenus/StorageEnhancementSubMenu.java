@@ -31,6 +31,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     private StorageEnhancement currentEnhancement;
     private final DataSlot priority = DataSlot.standalone();
     private final BlockState blockState;
+    private final WispInteractionNodeBase parentWisp;
     private final FakeInventory filter = new FakeInventory( StorageEnhancement.FILTER_SIZE, false );
     private final StringVariableArrayReferenceHolder tagFilters = new StringVariableArrayReferenceHolder(';');
     private final DataSlot filterType = DataSlot.standalone();
@@ -51,13 +52,14 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     public static final int TAG_FETCH_HELPER_SLOT_X = 1;
     public static final int TAG_FETCH_HELPER_SLOT_Y = 64;
 
-    public StorageEnhancementSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity)
+    public StorageEnhancementSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp)
     {
         super(xPos, yPos);
         addDataSlot(priority);
         addDataSlot(filterType);
         trackStr(tagFilters);
         this.blockState = blockState;
+        this.parentWisp = parentWisp;
 
         for(int i = 0; i < filter.getContainerSize(); ++i)
         {
@@ -257,10 +259,6 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
 
     public WispInteractionNodeBase GetConnectedNode()
     {
-        if(currentEnhancement != null)
-        {
-            return currentEnhancement.GetAttachedInteractionNode();
-        }
-        return null;
+        return parentWisp;
     }
 }

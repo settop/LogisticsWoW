@@ -49,7 +49,7 @@ public class StorageEnhancement implements IEnhancement
         }
 
         @Override
-        public SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity) { return new StorageEnhancementSubMenu(xPos, yPos, blockState, blockEntity); }
+        public SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp) { return new StorageEnhancementSubMenu(xPos, yPos, blockState, blockEntity, parentWisp); }
     }
 
 
@@ -354,15 +354,14 @@ public class StorageEnhancement implements IEnhancement
     }
 
     @Override
-    public void Setup(WispInteractionNodeBase parentWisp, BlockEntity blockEntity)
+    public void Setup(WispInteractionNodeBase parentWisp)
     {
-        if(blockEntity == null)
-        {
-            ClearNetworkData();
-            return;
-        }
-
         this.parentWisp = parentWisp;
+    }
+
+    @Override
+    public void OnConnectToNetwork()
+    {
         ReservableInventory inv = parentWisp.GetReservableInventory();
         if(inv == null)
         {
@@ -383,6 +382,12 @@ public class StorageEnhancement implements IEnhancement
         UpdateFilterCache();
         parentWisp.connectedNetwork.GetItemManagement().AddItemSink(itemSink, effectiveFilterType, filteredItems, filteredTags);
         RefreshItems();
+    }
+
+    @Override
+    public void OnDisconnectFromNetwork()
+    {
+        ClearNetworkData();
     }
 
     private Constants.eFilterType CalculateEffectiveFilterType()
