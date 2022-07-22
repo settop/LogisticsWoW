@@ -125,10 +125,6 @@ public class WispNode
         networkConnectionNode = null;
     }
 
-    public void RemoveFromWorld(Level level)
-    {
-    }
-
     public boolean CanConnectToPos(Level world, BlockPos target, int connectionRange)
     {
         BlockPos blockOffset = target.subtract(pos);

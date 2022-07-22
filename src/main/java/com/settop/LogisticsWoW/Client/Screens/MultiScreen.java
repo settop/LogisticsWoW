@@ -41,6 +41,7 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
     public static final int BG_COLOUR = 0xffc6c6c6;
     public static final GuiPart PLAYER_INVENTORY = new GuiPart(0, 32, 166, 81);
     public static final GuiPart INV_SLOT = new GuiPart(2, 35, 18, 18);
+    public static final GuiPart INV_ROW = new GuiPart(2, 35, 162, 18);
     public static final GuiPart BUTTON = new GuiPart(0, 0, 32, 32);
     public static final GuiPart BUTTON_HOVERED = new GuiPart(32, 0, 32, 32);
     public static final GuiPart BUTTON_INACTIVE = new GuiPart(64, 0, 32, 32);

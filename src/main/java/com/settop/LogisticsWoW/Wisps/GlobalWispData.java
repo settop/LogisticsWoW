@@ -370,12 +370,11 @@ public class GlobalWispData
         }
     }
 
-    public static synchronized void RemoveNode(Level inWorld, WispNode node)
+    public static synchronized void RemoveNode(WispNode node)
     {
-        LevelWispData dimData = EnsureWorldData(inWorld.dimension().location());
+        LevelWispData dimData = EnsureWorldData(node.GetDim());
         ChunkWisps chunkData = dimData.EnsureChunkWisps(node.GetPos());
 
-        node.RemoveFromWorld(inWorld);
         if(chunkData.unregisteredNodes.remove(node))
         {
             return;
@@ -387,7 +386,7 @@ public class GlobalWispData
             //done
             return;
         }
-        HandleOrphanedNodes(connectedNetwork.RemoveNode(inWorld.dimension().location(), node));
+        HandleOrphanedNodes(connectedNetwork.RemoveNode(node.GetDim(), node));
     }
 
     private static synchronized void TryResolveExistingConnections(Level level, WispNode node)
@@ -768,7 +767,7 @@ public class GlobalWispData
 
             if(wisp != null)
             {
-                RemoveNode((Level) updateEvent.getWorld(), wisp);
+                RemoveNode(wisp);
                 wisp.DropItemStackIntoWorld(updateEvent.getWorld());
             }
         }

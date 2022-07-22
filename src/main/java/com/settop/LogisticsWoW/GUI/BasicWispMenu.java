@@ -63,8 +63,8 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
     public static final int WISP_SLOT_XPOS = 3;
     public static final int WISP_SLOT_YPOS = 16;
     public static final int PLAYER_INVENTORY_XPOS = 3;
-    public static final int PLAYER_INVENTORY_YPOS = 119;
-    public static final int STAFF_INVENTORY_YPOS = 101;
+    public static final int STAFF_INVENTORY_YPOS = 95;
+    public static final int PLAYER_INVENTORY_YPOS = 125;
 
     private BasicWispMenu(int id, Inventory playerInventory, Player player, WispInteractionContents inWispContents, WispInteractionNodeBase inParentWisp, BlockState inBlockState, BlockEntity inBlockEntity, IItemHandler staffInv, int staffSlot)
     {
@@ -221,6 +221,11 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
     public SubMenu GetEnhancementSubContainer(EnhancementTypes enhancementType)
     {
         return tabbedContainers.get(enhancementType.ordinal() + 1);
+    }
+
+    public CommandStaffInvSubMenu GetCommandStaffInvSubMenu()
+    {
+        return commandStaffInvSubMenu;
     }
 
     public PlayerInventorySubMenu GetPlayerInventorySubMenu()

@@ -7,6 +7,7 @@ import com.settop.LogisticsWoW.Utils.Utils;
 import com.settop.LogisticsWoW.WispNetwork.ReservableInventory;
 import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -14,6 +15,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -136,6 +138,11 @@ public class WispInteractionNode extends WispInteractionNodeBase
     @Override
     public void UpdateFromContents()
     {
+        for(IEnhancement enhancement : enhancements)
+        {
+            enhancement.OnDisconnectFromNetwork();
+            enhancement.Setup(null);
+        }
         enhancements.clear();
         for(int i = 0; i < contents.getContainerSize(); ++i)
         {
@@ -157,6 +164,10 @@ public class WispInteractionNode extends WispInteractionNodeBase
             {
                 LogisticsWoW.LOGGER.warn("Unrecognised wisp enhancement");
             }
+        }
+        if(enhancements.isEmpty())
+        {
+            GlobalWispData.RemoveNode(this);
         }
     }
 

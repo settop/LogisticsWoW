@@ -2,6 +2,7 @@ package com.settop.LogisticsWoW.Client.Screens;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.settop.LogisticsWoW.GUI.SubMenus.CommandStaffInvSubMenu;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.GUI.Network.Packets.CContainerTabSelected;
 import com.settop.LogisticsWoW.GUI.SubMenus.PlayerInventorySubMenu;
@@ -97,6 +98,9 @@ public class BasicWispContainerScreen extends MultiScreen<BasicWispMenu> impleme
         final float LABEL_XPOS = 5;
         final float FONT_Y_SPACING = 12;
 
+        final float STAFF_INV_LABEL_YPOS = BasicWispMenu.STAFF_INVENTORY_YPOS - FONT_Y_SPACING;
+        font.draw(matrixStack, new TranslatableComponent("container.logwow.command_staff"),
+                LABEL_XPOS, STAFF_INV_LABEL_YPOS, Color.darkGray.getRGB());
         final float PLAYER_INV_LABEL_YPOS = BasicWispMenu.PLAYER_INVENTORY_YPOS - FONT_Y_SPACING;
         font.draw(matrixStack, playerInventoryTitle,                  ///    this.font.drawString
                 LABEL_XPOS, PLAYER_INV_LABEL_YPOS, Color.darkGray.getRGB());
@@ -112,9 +116,18 @@ public class BasicWispContainerScreen extends MultiScreen<BasicWispMenu> impleme
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.setShaderTexture(0, GUI_PARTS_TEXTURE);
 
+        CommandStaffInvSubMenu staffContainer = menu.GetCommandStaffInvSubMenu();
         PlayerInventorySubMenu playerContainer = menu.GetPlayerInventorySubMenu();
 
         this.fillGradient(matrixStack, leftPos, topPos, leftPos + this.imageWidth, topPos + this.imageHeight, BG_COLOUR, BG_COLOUR);
+        //render staff BG
+        RenderSystem.setShaderTexture(0, GUI_PARTS_TEXTURE);
+
+        int staffInvXOffset = -1;
+        int staffInvYOffset = -1;
+        this.blit(matrixStack, leftPos + staffContainer.GetXPos() + staffInvXOffset, topPos + staffContainer.GetYPos() + staffInvYOffset, INV_ROW.uStart, INV_ROW.vStart, INV_ROW.width, INV_ROW.height);
+
+
         RenderPlayerInv(matrixStack, playerContainer.GetXPos(), playerContainer.GetYPos());
 
         super.renderBg(matrixStack, partialTicks, mouseX, mouseY);

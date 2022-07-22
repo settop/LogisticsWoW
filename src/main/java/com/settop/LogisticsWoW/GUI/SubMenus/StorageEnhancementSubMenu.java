@@ -218,6 +218,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
                     continue;
                 }
                 slot.set(stack);
+                currentFilteredItems.add(stack.getItem());
                 break;
             }
         }

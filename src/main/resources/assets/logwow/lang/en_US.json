@@ -1,14 +1,13 @@
 {
     "block.logwow.wisp_core": "Wisp Core",
-    "block.logwow.wisp_connection_node": "Wisp Connector Node",
+    "block.logwow.wisp_connection_node": "Wisp Connector",
 
-    "item.logwow.wisp": "Lesser Wisp Interaction Node",
     "item.logwow.wisp_storage_enhancement": "Storage Enhancement",
     "item.logwow.wisp_command_staff_lesser": "Lesser Wisp Command Staff",
     "item.logwow.wisp_command_staff_basic": "Wisp Command Staff",
     "item.logwow.wisp_command_staff_greater": "Greater Wisp Command Staff",
 
-    "container.logwow.basic_wisp_menu": "Wisp",
+    "container.logwow.basic_wisp_menu": "Wisp Interaction",
     "container.logwow.command_staff": "Wisp Command Staff",
 
     "logwow.wisp_contents": "Enhancements",

@@ -39,12 +39,6 @@ public abstract class WispInteractionNodeBase extends WispNode
         super(dim, inPos);
     }
 
-    public void RemoveFromWorld(Level level)
-    {
-        super.RemoveFromWorld(level);
-
-    }
-
     @Override
     public boolean CanBeUsedAsNetworkConnection()
     {

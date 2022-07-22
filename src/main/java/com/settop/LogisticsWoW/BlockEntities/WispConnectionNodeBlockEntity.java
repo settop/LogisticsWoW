@@ -77,7 +77,7 @@ public class WispConnectionNodeBlockEntity extends BlockEntity
         {
             if (node != null)
             {
-                GlobalWispData.RemoveNode(level, node);
+                GlobalWispData.RemoveNode(node);
             }
         }
     }
