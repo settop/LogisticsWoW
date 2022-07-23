@@ -1,6 +1,11 @@
 {
     "variants":
     {
-        "": { "model": "logwow:block/wisp_connection_node" }
+        "facing=down": 	{ "model": "logwow:block/wisp_connection_node" },
+        "facing=up": 	{ "model": "logwow:block/wisp_connection_node", "x":180 },
+        "facing=north": { "model": "logwow:block/wisp_connection_node", "x":270 },
+        "facing=south": { "model": "logwow:block/wisp_connection_node", "x":90 },
+        "facing=east": 	{ "model": "logwow:block/wisp_connection_node", "x":90, "y":270 },
+        "facing=west": 	{ "model": "logwow:block/wisp_connection_node", "x":90, "y":90 }
     }
 }

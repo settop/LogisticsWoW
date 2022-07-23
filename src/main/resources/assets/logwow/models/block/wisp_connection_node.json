@@ -1,7 +1,36 @@
 {
-    "parent": "block/cube_all",
     "textures":
     {
         "all": "logwow:blocks/wisp_core"
-    }
+    },
+	"elements": 
+	[
+		{   
+			"from": [ 2, 0, 2 ],
+			"to": [ 14, 2, 14 ],
+			"shade": true,
+			"faces": 
+			{
+				"down": 	{ "uv": [ 7, 13, 9, 15 ], "texture": "all", "cullface": "down" },
+				"up":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"north":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"south":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"east":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"west":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" }
+			}
+		},
+		{   
+			"from": [ 6, 2, 6 ],
+			"to": [ 10, 6, 10 ],
+			"shade": true,
+			"faces": 
+			{
+				"up":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"north":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"south":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"east":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" },
+				"west":   	{ "uv": [ 7,  6, 9,  8 ], "texture": "all" }
+			}
+		}
+	]
 }
