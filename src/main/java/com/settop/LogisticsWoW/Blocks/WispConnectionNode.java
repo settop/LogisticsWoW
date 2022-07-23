@@ -10,11 +10,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.material.Material;
@@ -27,6 +29,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class WispConnectionNode extends DirectionalBlock implements EntityBlock, SimpleWaterloggedBlock
 {
+    public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
     protected final VoxelShape[] collisionShapeByDirection;
 
     public WispConnectionNode()
@@ -38,7 +41,7 @@ public class WispConnectionNode extends DirectionalBlock implements EntityBlock,
                 (
                         stateDefinition.any()
                                 .setValue(FACING, Direction.DOWN)
-                                .setValue(BlockStateProperties.WATERLOGGED, false)
+                                .setValue(WATERLOGGED, false)
                 );
         collisionShapeByDirection = makeShapes();
     }
@@ -47,18 +50,20 @@ public class WispConnectionNode extends DirectionalBlock implements EntityBlock,
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder)
     {
         builder.add(FACING);
-        builder.add(BlockStateProperties.WATERLOGGED);
+        builder.add(WATERLOGGED);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context)
     {
-        return defaultBlockState().setValue(FACING, context.getClickedFace().getOpposite());
+        return defaultBlockState()
+                .setValue(FACING, context.getClickedFace().getOpposite())
+                .setValue(WATERLOGGED, context.getLevel().getFluidState(context.getClickedPos()).getType() == Fluids.WATER);
     }
 
     @Nullable
     @Override
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state)
+    public BlockEntity newBlockEntity(@NotNull BlockPos pos, @NotNull BlockState state)
     {
         return new WispConnectionNodeBlockEntity(pos, state);
     }
@@ -128,9 +133,20 @@ public class WispConnectionNode extends DirectionalBlock implements EntityBlock,
     }
 
     @Override
+    public @NotNull BlockState updateShape(BlockState blockState, @NotNull Direction updateDirection, @NotNull BlockState otherBlockState, @NotNull LevelAccessor level, @NotNull BlockPos pos, @NotNull BlockPos otherPos)
+    {
+        if (blockState.getValue(WATERLOGGED))
+        {
+            level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+        }
+
+        return super.updateShape(blockState, updateDirection, otherBlockState, level, pos, otherPos);
+    }
+
+    @Override
     public @NotNull FluidState getFluidState(BlockState blockState)
     {
-        return blockState.getValue(BlockStateProperties.WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(blockState);
+        return blockState.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(blockState);
     }
 
     @Override
