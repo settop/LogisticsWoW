@@ -14,6 +14,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Tuple;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -26,6 +27,7 @@ import com.settop.LogisticsWoW.Wisps.WispFactory;
 import com.settop.LogisticsWoW.Wisps.WispNode;
 import net.minecraftforge.client.event.RenderLevelLastEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -77,7 +79,8 @@ public class WispNetwork extends WispNode
     private final WispTaskManager taskManager = new WispTaskManager();
     private int tickTime = 0;
 
-    private final WispNetworkItemManagement itemMangement = new WispNetworkItemManagement();
+    private final WispNetworkResourceManagement<ItemStack> itemManagement = new WispNetworkResourceManagement<>();
+    private final WispNetworkResourceManagement<FluidStack> fluidManagement = new WispNetworkResourceManagement<>();
 
     private static ResourceLocation GetDim(Level level) { return level.dimension().location(); }
 
@@ -751,7 +754,7 @@ public class WispNetwork extends WispNode
     {
         ++tickTime;
         taskManager.Advance(tickEvent, this, tickTime);
-        itemMangement.Tick();
+        itemManagement.Tick();
     }
 
     public void StartTask(WispTask task)
@@ -759,11 +762,12 @@ public class WispNetwork extends WispNode
         taskManager.StartTask(task, this, tickTime);
     }
 
-    public WispNetworkItemManagement GetItemManagement()
+    public WispNetworkResourceManagement<ItemStack> GetItemManagement()
     {
-        return itemMangement;
+        return itemManagement;
     }
-
+    public WispNetworkResourceManagement<FluidStack> GetFluidManagement(){ return fluidManagement; }
+    
     private @Nonnull WispNode.NextPathStep GeneratePath(WispNode start, WispNode end)
     {
         WispNode.NextPathStep cachedPath = start.cachedPaths.get(end);
@@ -994,6 +998,8 @@ public class WispNetwork extends WispNode
                 }
             }
         }
+
+        //ToDo: Handle missing connections, and need to handle the case of a node getting completely disconnected
 
         taskManager.DeserialiseNBT(this, tickTime, nbt.getCompound("taskManager"));
     }

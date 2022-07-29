@@ -1,7 +1,6 @@
 package com.settop.LogisticsWoW.WispNetwork.Tasks;
 
 import com.settop.LogisticsWoW.LogisticsWoW;
-import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTask;
 import com.settop.LogisticsWoW.WispNetwork.WispNetwork;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -65,9 +64,9 @@ public class WispTaskManager
                 catch (Exception ex)
                 {
                     LogisticsWoW.LOGGER.error("Task tick failed.", ex);
-                    if(queuedTask.task instanceof ItemHoldingTask)
+                    if(queuedTask.task instanceof ResourceHoldingTask)
                     {
-                        HandleLostItemStack(network, ((ItemHoldingTask) queuedTask.task).heldItemStack);
+                        HandleLostItemStack(network, ((ResourceHoldingTask) queuedTask.task).GetHeldResourceAsItemStack());
                     }
                 }
                 if(nextTickTime.isPresent())
@@ -216,9 +215,9 @@ public class WispTaskManager
             catch (Exception ex)
             {
                 LogisticsWoW.LOGGER.error("Error loading task. Task NBT: \"{}\".", taskNBT.toString(), ex);
-                if(task instanceof ItemHoldingTask)
+                if(task instanceof ResourceHoldingTask)
                 {
-                    HandleLostItemStack(network, ((ItemHoldingTask) task).heldItemStack);
+                    HandleLostItemStack(network, ((ResourceHoldingTask) task).GetHeldResourceAsItemStack());
                 }
             }
         }

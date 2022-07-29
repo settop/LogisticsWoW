@@ -10,17 +10,14 @@ import com.settop.LogisticsWoW.GUI.Network.GUIServerMessageHandler;
 import com.settop.LogisticsWoW.GUI.Network.Packets.*;
 import com.settop.LogisticsWoW.Items.WispCommandStaff;
 import com.settop.LogisticsWoW.Items.WispEnhancementItem;
-import com.settop.LogisticsWoW.WispNetwork.Tasks.TransferTask;
+import com.settop.LogisticsWoW.WispNetwork.Tasks.ItemTransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskFactory;
 import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.crafting.MapCloningRecipe;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraft.world.item.crafting.SimpleRecipeSerializer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.BlockItem;
@@ -31,7 +28,6 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.common.capabilities.CapabilityToken;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
-import net.minecraftforge.common.crafting.IShapedRecipe;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -86,7 +82,7 @@ public class LogisticsWoW
 
     private void SetupTaskFactories()
     {
-        WispTaskFactory.RegisterFactory(TransferTask.SERIALISABLE_NAME, new TransferTask.Factory());
+        WispTaskFactory.RegisterFactory(ItemTransferTask.SERIALISABLE_NAME, new ItemTransferTask.Factory());
     }
 
     private void setup(final FMLCommonSetupEvent event)

@@ -5,11 +5,9 @@ import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.settop.LogisticsWoW.Client.Screens.Popups.PriorityPopup;
-import com.settop.LogisticsWoW.Client.Screens.Widgets.NumberSpinner;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Constants;
-import com.settop.LogisticsWoW.WispNetwork.ReservableInventory;
-import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
+import com.settop.LogisticsWoW.Wisps.Enhancements.ItemStorageEnhancement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.narration.NarratedElementType;
@@ -22,8 +20,6 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
-import net.minecraft.world.Container;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -31,18 +27,15 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import com.settop.LogisticsWoW.Client.Client;
 import com.settop.LogisticsWoW.Client.Screens.MultiScreen;
-import com.settop.LogisticsWoW.Client.Screens.Popups.SideSelectionPopup;
 import com.settop.LogisticsWoW.Client.Screens.Widgets.SmallButton;
 import com.settop.LogisticsWoW.Client.Screens.Widgets.TagListSelection;
 import com.settop.LogisticsWoW.GUI.FakeSlot;
 import com.settop.LogisticsWoW.GUI.Network.Packets.CSubWindowPropertyUpdatePacket;
 import com.settop.LogisticsWoW.GUI.Network.Packets.CSubWindowStringPropertyUpdatePacket;
 import com.settop.LogisticsWoW.GUI.SubMenus.StorageEnhancementSubMenu;
-import com.settop.LogisticsWoW.Wisps.Enhancements.StorageEnhancement;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 
 @OnlyIn(Dist.CLIENT)
 public class StorageSubScreen extends SubScreen
@@ -113,7 +106,7 @@ public class StorageSubScreen extends SubScreen
             providerContainer.SetFilterType(Constants.eFilterType.values()[nextValue]);
             LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.FILTER_TYPE_PROPERTY_ID,  nextValue));
 
-            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Item;
+            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Type;
         }
 
         @Override
@@ -122,7 +115,7 @@ public class StorageSubScreen extends SubScreen
             StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
             TranslatableComponent text = switch (providerContainer.GetFilterType())
             {
-                case Item -> new TranslatableComponent("logwow.item_filter");
+                case Type -> new TranslatableComponent("logwow.item_filter");
                 case Tag -> new TranslatableComponent("logwow.tag_filter");
                 case Default -> new TranslatableComponent("logwow.default_store");
             };
@@ -135,7 +128,7 @@ public class StorageSubScreen extends SubScreen
             StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
             Item renderItem = switch (providerContainer.GetFilterType())
             {
-                case Item -> Items.IRON_INGOT;
+                case Type -> Items.IRON_INGOT;
                 case Tag -> Items.NAME_TAG;
                 case Default -> Items.AIR;
             };
@@ -287,11 +280,11 @@ public class StorageSubScreen extends SubScreen
     {
         StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
 
-        if(providerContainer.GetFilterType() == Constants.eFilterType.Item)
+        if(providerContainer.GetFilterType() == Constants.eFilterType.Type)
         {
-            for(int r = 0; r < StorageEnhancement.FILTER_NUM_ROWS; ++r)
+            for(int r = 0; r < ItemStorageEnhancement.FILTER_NUM_ROWS; ++r)
             {
-                MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.FILTER_SLOT_X, guiTop + StorageEnhancementSubMenu.FILTER_SLOT_Y + r * Client.SLOT_Y_SPACING, getBlitOffset(), StorageEnhancement.FILTER_NUM_COLUMNS);
+                MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.FILTER_SLOT_X, guiTop + StorageEnhancementSubMenu.FILTER_SLOT_Y + r * Client.SLOT_Y_SPACING, getBlitOffset(), ItemStorageEnhancement.FILTER_NUM_COLUMNS);
             }
         }
         else if(providerContainer.GetFilterType() == Constants.eFilterType.Tag)
@@ -315,7 +308,7 @@ public class StorageSubScreen extends SubScreen
 
             priorityButton.active = priorityButton.visible = active;
             filterTypeCycle.active = filterTypeCycle.visible = active;
-            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Item;
+            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Type;
         }
 
         tagSelection.active = tagSelection.visible = active && (providerContainer.GetFilterType() == Constants.eFilterType.Tag);

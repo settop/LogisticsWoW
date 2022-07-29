@@ -2,7 +2,7 @@ package com.settop.LogisticsWoW.Wisps.Enhancements;
 
 public enum EnhancementTypes
 {
-    STORAGE(StorageEnhancement.FACTORY, "logwow.enhancement.storage");
+    STORAGE(ItemStorageEnhancement.FACTORY, "logwow.enhancement.storage");
 
     public static final int NUM = EnhancementTypes.values().length;
 

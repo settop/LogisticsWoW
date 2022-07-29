@@ -8,40 +8,20 @@ import net.minecraftforge.items.ItemHandlerHelper;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 public class ReservableInventory extends Invalidable
 {
-    public static class Reservation extends Invalidable
+
+    private static class ReservationCollection
     {
-        public final int reservedCount;
-
-        public Reservation(int reservedCount)
-        {
-            assert reservedCount != 0;
-            this.reservedCount = reservedCount;
-        }
-
-        public boolean IsInsertReservation() { return reservedCount > 0; }
-        public boolean IsExtractReservation() { return reservedCount < 0; }
-
-        public int GetInsertCount()
-        {
-            assert IsInsertReservation();
-            return reservedCount;
-        }
-        public int GetExtractCount()
-        {
-            assert IsExtractReservation();
-            return -reservedCount;
-        }
-    }
-
-    private class ReservationCollection
-    {
+        final StoreableResourceMatcher<ItemStack> itemMatcher;
         final ArrayList<Reservation> reservations = new ArrayList<>();
+
+        private ReservationCollection(StoreableResourceMatcher<ItemStack> itemMatcher)
+        {
+            this.itemMatcher = itemMatcher;
+        }
 
         int GetReservationTotalCount()
         {
@@ -62,7 +42,7 @@ public class ReservableInventory extends Invalidable
         }
     }
 
-    private final HashMap<Item, ReservationCollection> reservedItems = new HashMap<>();
+    private final ArrayList<ReservationCollection> reservedItems = new ArrayList<>();
     private final IItemHandler baseInv;
     private final SimulatedInventory simulatedInventory;
 
@@ -76,7 +56,7 @@ public class ReservableInventory extends Invalidable
     public void SetInvalid()
     {
         super.SetInvalid();
-        for(ReservationCollection reservationCollection : reservedItems.values())
+        for(ReservationCollection reservationCollection : reservedItems)
         {
             for(Reservation reservation : reservationCollection.reservations)
             {
@@ -88,16 +68,46 @@ public class ReservableInventory extends Invalidable
     public void RefreshCache()
     {
         simulatedInventory.Reset();
-        for(Map.Entry<Item, ReservationCollection> reservation : reservedItems.entrySet())
+        for(ReservationCollection reservation : reservedItems)
         {
-            Item item = reservation.getKey();
-            int totalItemReservations = reservation.getValue().GetReservationTotalCount();
+            int totalItemReservations = reservation.GetReservationTotalCount();
             if(totalItemReservations > 0)
             {
-                ItemStack insertItem = new ItemStack(item, totalItemReservations);
+                ItemStack insertItem = null;
                 //simulate inserting
                 for(int slot = 0; slot < simulatedInventory.getSlots(); ++slot)
                 {
+                    ItemStack slotStack = simulatedInventory.getStackInSlot(slot);
+                    if (insertItem == null)
+                    {
+                        if (slotStack.isEmpty())
+                        {
+                            //can't get the exact stack we need, so just add a stack of the correct item without any nbt
+                            insertItem = new ItemStack((Item) reservation.itemMatcher.GetType(), totalItemReservations);
+                            insertItem = simulatedInventory.insertItem(slot, insertItem, false);
+                            totalItemReservations = insertItem.getCount();
+                            insertItem = null;
+                            if(totalItemReservations <= 0)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                continue;
+                            }
+                        }
+                        else if (reservation.itemMatcher.Matches(slotStack))
+                        {
+                            //this is the exact type of item we want, so reuse it for the rest of the inserts
+                            insertItem = slotStack.copy();
+                            insertItem.setCount(totalItemReservations);
+                        }
+                        else
+                        {
+                            //can't insert onto this item
+                            continue;
+                        }
+                    }
                     insertItem = simulatedInventory.insertItem(slot, insertItem, false);
                     if(insertItem.isEmpty())
                     {
@@ -112,7 +122,7 @@ public class ReservableInventory extends Invalidable
                 for(int slot = 0; slot < simulatedInventory.getSlots(); ++slot)
                 {
                     ItemStack slotStack = simulatedInventory.getStackInSlot(slot);
-                    if(slotStack.getItem().equals(item))
+                    if(reservation.itemMatcher.Matches(slotStack))
                     {
                         ItemStack simulatedExtractedItem = simulatedInventory.extractItem(slot, totalItemReservations, false);
                         totalItemReservations -= simulatedExtractedItem.getCount();
@@ -144,13 +154,13 @@ public class ReservableInventory extends Invalidable
         return insertItem;
     }
 
-    private ItemStack SimulateExtraction(Item item, int count)
+    private ItemStack SimulateExtraction(StoreableResourceMatcher<ItemStack> extractionMatcher, int count)
     {
         ItemStack extractedStack = ItemStack.EMPTY;
         for(int slot = 0; slot < simulatedInventory.getSlots(); ++slot)
         {
             ItemStack slotStack = simulatedInventory.getStackInSlot(slot);
-            if((extractedStack.isEmpty() && slotStack.is(item)) ||
+            if((extractedStack.isEmpty() && extractionMatcher.Matches(slotStack)) ||
                     (!extractedStack.isEmpty() && ItemHandlerHelper.canItemStacksStack(extractedStack, slotStack)))
             {
                 ItemStack slotExtractedStack = simulatedInventory.extractItem(slot, count - extractedStack.getCount(), false);
@@ -173,34 +183,55 @@ public class ReservableInventory extends Invalidable
 
     public Reservation ReserveInsertion(ItemStack insertItem)
     {
-        Item item = insertItem.getItem();
-        int initialCount = insertItem.getCount();
+        ItemStack remainderStack = SimulateInsertion(insertItem);
 
-        insertItem = SimulateInsertion(insertItem);
-
-        int insertedCount = initialCount - insertItem.getCount();
+        int insertedCount = insertItem.getCount() - remainderStack.getCount();
 
         if(insertedCount == 0)
         {
             return null;
         }
 
-        ReservationCollection reservationCollection = reservedItems.computeIfAbsent(item, (key)->new ReservationCollection());
+        for(ReservationCollection reservationCollection : reservedItems)
+        {
+            if(reservationCollection.itemMatcher.Matches(insertItem))
+            {
+                Reservation reservation = new Reservation(insertedCount);
+                reservationCollection.reservations.add(reservation);
+                return reservation;
+            }
+        }
+
+        ReservationCollection reservationCollection = new ReservationCollection(new ItemResource(insertItem));
+        reservedItems.add(reservationCollection);
+
         Reservation reservation = new Reservation(insertedCount);
         reservationCollection.reservations.add(reservation);
         return reservation;
     }
 
-    public Reservation ReserveExtraction(Item item, int count)
+    public Reservation ReserveExtraction(StoreableResourceMatcher<ItemStack> extractionMatcher, int count)
     {
-        ItemStack extractedStack = SimulateExtraction(item, count);
+        ItemStack extractedStack = SimulateExtraction(extractionMatcher, count);
 
         if(extractedStack.isEmpty())
         {
             return null;
         }
 
-        ReservationCollection reservationCollection = reservedItems.computeIfAbsent(item, (key)->new ReservationCollection());
+        for(ReservationCollection reservationCollection : reservedItems)
+        {
+            if(reservationCollection.itemMatcher.equals(extractionMatcher))
+            {
+                Reservation reservation = new Reservation(-extractedStack.getCount());
+                reservationCollection.reservations.add(reservation);
+                return reservation;
+            }
+        }
+
+        ReservationCollection reservationCollection = new ReservationCollection(extractionMatcher);
+        reservedItems.add(reservationCollection);
+
         Reservation reservation = new Reservation(-extractedStack.getCount());
         reservationCollection.reservations.add(reservation);
         return reservation;
@@ -229,7 +260,7 @@ public class ReservableInventory extends Invalidable
         return insertStack;
     }
 
-    public ItemStack ExtractItems(Reservation reservation, Item item, int count)
+    public ItemStack ExtractItems(Reservation reservation, StoreableResourceMatcher<ItemStack> extractionMatcher, int count)
     {
         assert reservation == null || reservation.IsExtractReservation();
         assert reservation == null || count <= -reservation.reservedCount;
@@ -238,7 +269,7 @@ public class ReservableInventory extends Invalidable
         for(int slot = 0; slot < baseInv.getSlots(); ++slot)
         {
             ItemStack slotStack = baseInv.getStackInSlot(slot);
-            if((extractedStack.isEmpty() && slotStack.is(item)) ||
+            if((extractedStack.isEmpty() && extractionMatcher.Matches(slotStack)) ||
                     (!extractedStack.isEmpty() && ItemHandlerHelper.canItemStacksStack(extractedStack, slotStack)))
             {
                 ItemStack slotExtractedStack = baseInv.extractItem(slot, count - extractedStack.getCount(), false);

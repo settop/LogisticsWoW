@@ -6,42 +6,24 @@ import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import com.settop.LogisticsWoW.Wisps.WispNode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import java.util.OptionalInt;
 
-public class TransferTask extends ItemHoldingTask
+public abstract class TransferTask extends ResourceHoldingTask
 {
-    public static final String SERIALISABLE_NAME = "TransferTask";
-    public static class Factory extends WispTaskFactory
-    {
-        @Override
-        public SerialisableWispTask CreateAndRead(WispNetwork network, CompoundTag nbt)
-        {
-            TransferTask task = new TransferTask();
-            task.DeserialiseNBT(network, nbt);
-            return task;
-        }
-    }
-
     enum eState
     {
         GoingToPickup,
         GoingToDropoff,
         GoingHome
     }
-
     private CompoundTag loadData;
-
-    private Item item;
     private CarryWisp carryWisp;
     private SourcedReservation pickupReservation;
     private SourcedReservation dropoffReservation;
@@ -50,17 +32,23 @@ public class TransferTask extends ItemHoldingTask
     private WispNode.NextPathStep nextPathStep = null;
     private float leftoverFractionalTick = 0.f;
 
-    public TransferTask(@Nonnull Item item, @Nonnull CarryWisp carryWisp, @Nonnull SourcedReservation pickupReservation, @Nonnull SourcedReservation dropoffReservation)
+    public TransferTask(@Nonnull CarryWisp carryWisp, @Nonnull SourcedReservation pickupReservation, @Nonnull SourcedReservation dropoffReservation)
     {
-        this.item = item;
         this.carryWisp = carryWisp;
         this.pickupReservation = pickupReservation;
         this.dropoffReservation = dropoffReservation;
     }
 
-    private TransferTask()
+    protected TransferTask()
     {
     }
+
+    protected abstract boolean Pickup(SourcedReservation pickupReservation);
+    protected abstract boolean Dropoff(SourcedReservation dropoffReservation);
+    protected abstract SourcedReservation GetNewReservationForHeldResource(WispNetwork network);
+
+    protected abstract Reservation ReserveExtractionFromNode(WispInteractionNodeBase node, Direction direction, int count);
+    protected abstract Reservation ReserveInsertionIntoNode(WispInteractionNodeBase node, Direction direction);
 
     public int GetNextTickOffset()
     {
@@ -111,90 +99,88 @@ public class TransferTask extends ItemHoldingTask
         switch (currentState)
         {
             case GoingToPickup ->
-            {
-                if(pickupReservation == null || !pickupReservation.IsValid() || pickupReservation.inventoryNode.connectedNetwork != network)
-                {
-                    //go home
-                    currentState = eState.GoingHome;
-                    return OptionalInt.of(currentTickTime + tickOffset);
-                }
-                else if(nextPathStep.node == pickupReservation.inventoryNode)
-                {
-                    //extract and proceed
-                    ReservableInventory inv = pickupReservation.inventoryNode.GetReservableInventory(pickupReservation.inventoryDirection);
-                    heldItemStack = inv.ExtractItems(pickupReservation.reservation, item, pickupReservation.reservation.GetExtractCount());
-                    pickupReservation = null;
-                    if(heldItemStack.isEmpty())
                     {
-                        //nothing to carry
-                        //cancel this task and send the wisp back home
-                        currentState = eState.GoingHome;
-                        return OptionalInt.of(currentTickTime + tickOffset);
-                    }
-                    currentState = eState.GoingToDropoff;
+                        if(pickupReservation == null || !pickupReservation.IsValid() || pickupReservation.inventoryNode.connectedNetwork != network)
+                        {
+                            //go home
+                            currentState = eState.GoingHome;
+                            return OptionalInt.of(currentTickTime + tickOffset);
+                        }
+                        else if(nextPathStep.node == pickupReservation.inventoryNode)
+                        {
+                            //extract and proceed
+                            boolean pickupSuccess = Pickup(pickupReservation);
+                            pickupReservation = null;
+                            if(!pickupSuccess)
+                            {
+                                //nothing to carry
+                                //cancel this task and send the wisp back home
+                                currentState = eState.GoingHome;
+                                return OptionalInt.of(currentTickTime + tickOffset);
+                            }
+                            currentState = eState.GoingToDropoff;
 
-                    return OptionalInt.of(currentTickTime + tickOffset);
-                }
-                targetNode = pickupReservation.inventoryNode;
-            }
+                            return OptionalInt.of(currentTickTime + tickOffset);
+                        }
+                        targetNode = pickupReservation.inventoryNode;
+                    }
             case GoingToDropoff ->
-            {
-                if(dropoffReservation == null || !dropoffReservation.IsValid() || dropoffReservation.inventoryNode.connectedNetwork != network)
-                {
-                    //oh no
-                    //find somewhere else to place the item
-                    dropoffReservation = network.GetItemManagement().ReserveSpaceInBestSink(heldItemStack);
-                    if(dropoffReservation == null)
                     {
-                        //oh no
-                        //nowhere to put this item
-                        DropItems();
-                        currentState = eState.GoingHome;
-                        return OptionalInt.of(currentTickTime + tickOffset);
+                        if(dropoffReservation == null || !dropoffReservation.IsValid() || dropoffReservation.inventoryNode.connectedNetwork != network)
+                        {
+                            //oh no
+                            //find somewhere else to place the item
+                            dropoffReservation = GetNewReservationForHeldResource(network);
+                            if(dropoffReservation == null)
+                            {
+                                //oh no
+                                //nowhere to put this item
+                                DropItems();
+                                currentState = eState.GoingHome;
+                                return OptionalInt.of(currentTickTime + tickOffset);
+                            }
+                        }
+                        else if(nextPathStep.node == dropoffReservation.inventoryNode)
+                        {
+                            //drop off
+                            boolean dropoffSuccess = Dropoff(dropoffReservation);
+                            dropoffReservation = null;
+                            if(dropoffSuccess)
+                            {
+                                //go home
+                                currentState = eState.GoingHome;
+                                return OptionalInt.of(currentTickTime + tickOffset);
+                            }
+                            //else handle it not fitting in
+                            dropoffReservation = GetNewReservationForHeldResource(network);
+                            if(dropoffReservation == null)
+                            {
+                                //oh no
+                                //nowhere to put this item
+                                DropItems();
+                                //go home
+                                currentState = eState.GoingHome;
+                                return OptionalInt.of(currentTickTime + tickOffset);
+                            }
+                            //take the leftover to the new destination
+                        }
+                        targetNode = dropoffReservation.inventoryNode;
                     }
-                }
-                else if(nextPathStep.node == dropoffReservation.inventoryNode)
-                {
-                    //drop off
-                    ReservableInventory inv = dropoffReservation.inventoryNode.GetReservableInventory(dropoffReservation.inventoryDirection);
-                    ItemStack leftover = inv.InsertItems(dropoffReservation.reservation, heldItemStack);
-                    if(leftover.isEmpty())
-                    {
-                        //go home
-                        currentState = eState.GoingHome;
-                        return OptionalInt.of(currentTickTime + tickOffset);
-                    }
-                    heldItemStack = leftover;
-                    //else handle it not fitting in
-                    dropoffReservation = network.GetItemManagement().ReserveSpaceInBestSink(heldItemStack);
-                    if(dropoffReservation == null)
-                    {
-                        //oh no
-                        //nowhere to put this item
-                        DropItems();
-                        //go home
-                        currentState = eState.GoingHome;
-                        return OptionalInt.of(currentTickTime + tickOffset);
-                    }
-                    //take the leftover to the new destination
-                }
-                targetNode = dropoffReservation.inventoryNode;
-            }
             case GoingHome ->
-            {
-                //ToDo handle wisps properly
-                if(carryWisp.sourceNode.connectedNetwork != network)
-                {
-                    return OptionalInt.empty();
-                }
-                else if(nextPathStep.node == carryWisp.sourceNode)
-                {
-                    //we are done
-                    //insert the wisp back
-                    return OptionalInt.empty();
-                }
-                targetNode = carryWisp.sourceNode;
-            }
+                    {
+                        //ToDo handle wisps properly
+                        if(carryWisp.sourceNode.connectedNetwork != network)
+                        {
+                            return OptionalInt.empty();
+                        }
+                        else if(nextPathStep.node == carryWisp.sourceNode)
+                        {
+                            //we are done
+                            //insert the wisp back
+                            return OptionalInt.empty();
+                        }
+                        targetNode = carryWisp.sourceNode;
+                    }
         }
 
         //continue to next node
@@ -223,12 +209,6 @@ public class TransferTask extends ItemHoldingTask
     }
 
     @Override
-    public String GetSerialisableName()
-    {
-        return SERIALISABLE_NAME;
-    }
-
-    @Override
     public CompoundTag SerialiseNBT(WispNetwork network)
     {
         if(loadData != null)
@@ -239,8 +219,6 @@ public class TransferTask extends ItemHoldingTask
 
         nbt.putInt("currentState", currentState.ordinal());
         nbt.putFloat("leftoverFractionalTick", leftoverFractionalTick);
-        ResourceLocation itemResourcelocation = Registry.ITEM.getKey(item);
-        nbt.putString("itemId", itemResourcelocation.toString());
 
         if(currentState.ordinal() <= eState.GoingToPickup.ordinal())
         {
@@ -299,7 +277,6 @@ public class TransferTask extends ItemHoldingTask
     {
         currentState = eState.values()[nbt.getInt("currentState")];
         leftoverFractionalTick = nbt.getFloat("leftoverFractionalTick");
-        item = Registry.ITEM.get(new ResourceLocation(nbt.getString("itemId")));
 
         if(currentState.ordinal() <= eState.GoingToPickup.ordinal() && nbt.contains("Pickup"))
         {
@@ -320,24 +297,14 @@ public class TransferTask extends ItemHoldingTask
                 {
                     return false;
                 }
-                ReservableInventory inv = interactionNode.GetReservableInventory(invDirection);
-                if(inv == null)
+                Reservation reservation = ReserveExtractionFromNode(interactionNode, invDirection, count);
+                if(reservation != null)
                 {
-                    LogisticsWoW.LOGGER.error("Transfer task load failed to get inventory from pickup node");
-                    return false;
+                    pickupReservation = new SourcedReservation(reservation, interactionNode, invDirection);
                 }
                 else
                 {
-                    ReservableInventory.Reservation reservation = inv.ReserveExtraction(item, count);
-
-                    if(reservation != null)
-                    {
-                        pickupReservation = new SourcedReservation(reservation, interactionNode, invDirection);
-                    }
-                    else
-                    {
-                        LogisticsWoW.LOGGER.error("Failed to reserve pickup for transfer task");
-                    }
+                    LogisticsWoW.LOGGER.error("Failed to reserve pickup for transfer task");
                 }
             }
             else
@@ -349,7 +316,6 @@ public class TransferTask extends ItemHoldingTask
         if(currentState.ordinal() <= eState.GoingToDropoff.ordinal() && nbt.contains("Dropoff"))
         {
             CompoundTag pickupNBT = nbt.getCompound("Dropoff");
-            int count = pickupNBT.getInt("Count");
             ResourceLocation nodeDim = new ResourceLocation(pickupNBT.getString("NodeDim"));
             BlockPos nodePos = NbtUtils.readBlockPos(pickupNBT.getCompound("NodePos"));
             Direction invDirection = null;
@@ -365,24 +331,14 @@ public class TransferTask extends ItemHoldingTask
                 {
                     return false;
                 }
-                ReservableInventory inv = interactionNode.GetReservableInventory(invDirection);
-                if(inv == null)
+                Reservation reservation = ReserveInsertionIntoNode(interactionNode, invDirection);
+                if(reservation != null)
                 {
-                    LogisticsWoW.LOGGER.error("Transfer task load failed to get inventory from dropoff node");
-                    return false;
+                    dropoffReservation = new SourcedReservation(reservation, interactionNode, invDirection);
                 }
                 else
                 {
-                    ReservableInventory.Reservation reservation = inv.ReserveInsertion(new ItemStack(item, count));
-
-                    if(reservation != null)
-                    {
-                        dropoffReservation = new SourcedReservation(reservation, interactionNode, invDirection);
-                    }
-                    else
-                    {
-                        LogisticsWoW.LOGGER.error("Failed to reserve dropoff for transfer task");
-                    }
+                    LogisticsWoW.LOGGER.error("Failed to reserve dropoff for transfer task");
                 }
             }
             else
@@ -420,7 +376,6 @@ public class TransferTask extends ItemHoldingTask
     @Override
     public void DeserialiseNBT(WispNetwork network, CompoundTag nbt)
     {
-        super.DeserialiseNBT(network, nbt);
         if(!TryLoad(network, nbt))
         {
             //failed to load, try again later

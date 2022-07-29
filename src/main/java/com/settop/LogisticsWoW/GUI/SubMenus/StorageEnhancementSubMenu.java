@@ -12,10 +12,9 @@ import com.settop.LogisticsWoW.Utils.FakeInventory;
 import com.settop.LogisticsWoW.Utils.StringVariableArrayReferenceHolder;
 import com.settop.LogisticsWoW.WispNetwork.ReservableInventory;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
-import com.settop.LogisticsWoW.Wisps.Enhancements.StorageEnhancement;
+import com.settop.LogisticsWoW.Wisps.Enhancements.ItemStorageEnhancement;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.Container;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
@@ -28,11 +27,11 @@ import java.util.HashSet;
 
 public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSubMenu
 {
-    private StorageEnhancement currentEnhancement;
+    private ItemStorageEnhancement currentEnhancement;
     private final DataSlot priority = DataSlot.standalone();
     private final BlockState blockState;
     private final WispInteractionNodeBase parentWisp;
-    private final FakeInventory filter = new FakeInventory( StorageEnhancement.FILTER_SIZE, false );
+    private final FakeInventory filter = new FakeInventory( ItemStorageEnhancement.FILTER_SIZE, false );
     private final StringVariableArrayReferenceHolder tagFilters = new StringVariableArrayReferenceHolder(';');
     private final DataSlot filterType = DataSlot.standalone();
 
@@ -63,8 +62,8 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
 
         for(int i = 0; i < filter.getContainerSize(); ++i)
         {
-            int column = i % StorageEnhancement.FILTER_NUM_COLUMNS;
-            int row = i / StorageEnhancement.FILTER_NUM_COLUMNS;
+            int column = i % ItemStorageEnhancement.FILTER_NUM_COLUMNS;
+            int row = i / ItemStorageEnhancement.FILTER_NUM_COLUMNS;
             inventorySlots.add( new FakeSlot(filter, i, xPos + FILTER_SLOT_X + column * Client.SLOT_X_SPACING, yPos + FILTER_SLOT_Y + row * Client.SLOT_Y_SPACING));
         }
         inventorySlots.add( new FakeSlot(tagGetHelper, 0, xPos + TAG_FETCH_HELPER_SLOT_X, yPos + TAG_FETCH_HELPER_SLOT_Y));
@@ -82,7 +81,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
             isActive = active;
         }
 
-        boolean filterSlotsActive = filterType.get() == Constants.eFilterType.Item.ordinal();
+        boolean filterSlotsActive = filterType.get() == Constants.eFilterType.Type.ordinal();
         for (int i = 0; i < filter.getContainerSize(); ++i)
         {
             Slot slot = inventorySlots.get(i);
@@ -147,9 +146,9 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     {
         if(enhancement != null)
         {
-            if(enhancement instanceof StorageEnhancement)
+            if(enhancement instanceof ItemStorageEnhancement)
             {
-                currentEnhancement = (StorageEnhancement)enhancement;
+                currentEnhancement = (ItemStorageEnhancement)enhancement;
 
                 priority.set(currentEnhancement.GetPriority());
                 for(int i = 0; i < filter.getContainerSize(); ++i)

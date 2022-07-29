@@ -10,7 +10,7 @@ public class Constants
     //ToDo: Add mod filter and a filter that matches the connected inventory
     public enum eFilterType
     {
-        Item,
+        Type,
         Tag,
         Default
     }

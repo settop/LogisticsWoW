@@ -1,19 +1,19 @@
 package com.settop.LogisticsWoW.WispNetwork;
 
 import com.settop.LogisticsWoW.Utils.Invalidable;
-import com.settop.LogisticsWoW.Wisps.WispInteractionNode;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 
-//ToDo: Handle NBT
-public abstract class ItemSource extends Invalidable
+public abstract class ResourceSource<T> extends Invalidable
 {
+    public final StoreableResourceMatcher<T> matcher;
     private int previousNumAvailable = 0;
     private int numAvailable;
 
-    public ItemSource(int numAvailable)
+    public ResourceSource(StoreableResourceMatcher<T> matcher, int numAvailable)
     {
+        this.matcher = matcher;
         assert numAvailable >= 0;
         this.numAvailable = numAvailable;
     }
@@ -40,8 +40,8 @@ public abstract class ItemSource extends Invalidable
         return previousNumAvailable != numAvailable;
     }
 
-    abstract public ReservableInventory.Reservation ReserveExtract(int count);
-    abstract public ItemStack Extract(ReservableInventory.Reservation reservation, int count);
+    abstract public Reservation ReserveExtract(StoreableResourceMatcher<T> extractionMatcher, int count);
+    abstract public T Extract(Reservation reservation, StoreableResourceMatcher<T> extractionMatcher, int count);
     abstract public WispInteractionNodeBase GetAttachedInteractionNode();
     abstract public Direction GetExtractionDirection();
 }
