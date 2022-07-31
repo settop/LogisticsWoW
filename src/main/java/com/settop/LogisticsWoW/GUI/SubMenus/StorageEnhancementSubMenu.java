@@ -25,9 +25,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.HashSet;
 
-public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSubMenu
+public class StorageEnhancementSubMenu extends SubMenu
 {
-    private ItemStorageEnhancement currentEnhancement;
+    private final ItemStorageEnhancement enhancement;
     private final DataSlot priority = DataSlot.standalone();
     private final BlockState blockState;
     private final WispInteractionNodeBase parentWisp;
@@ -51,12 +51,13 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     public static final int TAG_FETCH_HELPER_SLOT_X = 1;
     public static final int TAG_FETCH_HELPER_SLOT_Y = 64;
 
-    public StorageEnhancementSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp)
+    public StorageEnhancementSubMenu(ItemStorageEnhancement enhancement, int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp)
     {
         super(xPos, yPos);
         addDataSlot(priority);
         addDataSlot(filterType);
         trackStr(tagFilters);
+        this.enhancement = enhancement;
         this.blockState = blockState;
         this.parentWisp = parentWisp;
 
@@ -67,6 +68,22 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
             inventorySlots.add( new FakeSlot(filter, i, xPos + FILTER_SLOT_X + column * Client.SLOT_X_SPACING, yPos + FILTER_SLOT_Y + row * Client.SLOT_Y_SPACING));
         }
         inventorySlots.add( new FakeSlot(tagGetHelper, 0, xPos + TAG_FETCH_HELPER_SLOT_X, yPos + TAG_FETCH_HELPER_SLOT_Y));
+
+        priority.set(enhancement.GetPriority());
+        for(int i = 0; i < filter.getContainerSize(); ++i)
+        {
+            filter.setItem(i, enhancement.GetFilter().getItem(i));
+        }
+        if(enhancement.GetTagFilters() != null)
+        {
+            ArrayList<String> tags = new ArrayList<>();
+            for (ResourceLocation tag : enhancement.GetTagFilters())
+            {
+                tags.add(tag.toString());
+            }
+            tagFilters.setArray(tags);
+        }
+        filterType.set(enhancement.GetFilterType().ordinal());
     }
 
     @Override
@@ -81,16 +98,24 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
             isActive = active;
         }
 
+        OnDataRefresh();
+    }
+
+    @Override
+    public void OnDataRefresh()
+    {
         boolean filterSlotsActive = filterType.get() == Constants.eFilterType.Type.ordinal();
         for (int i = 0; i < filter.getContainerSize(); ++i)
         {
             Slot slot = inventorySlots.get(i);
             if (slot instanceof IActivatableSlot)
             {
-                ((IActivatableSlot) slot).SetActive(active && filterSlotsActive);
+                ((IActivatableSlot) slot).SetActive(isActive && filterSlotsActive);
             }
         }
-        GetTagFetchHelperSlot().SetActive(active && !filterSlotsActive);
+
+        boolean tagFilterActive = filterType.get() == Constants.eFilterType.Tag.ordinal();
+        GetTagFetchHelperSlot().SetActive(isActive && tagFilterActive);
     }
 
     @Override
@@ -102,6 +127,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
             case FILTER_TYPE_PROPERTY_ID -> filterType.set(value);
             case POLYMORPHIC_PROPERTY_ID -> DoPolymorphicFilterSet();
         }
+        OnDataRefresh();
     }
 
     @Override
@@ -118,20 +144,19 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     {
         super.OnClose();
         UpdateEnhancement();
-        currentEnhancement = null;
     }
 
     private void UpdateEnhancement()
     {
-        if(currentEnhancement != null)
+        if(enhancement != null)
         {
-            currentEnhancement.SetPriority(priority.get());
+            enhancement.SetPriority(priority.get());
             for(int i = 0; i < filter.getContainerSize(); ++i)
             {
-                currentEnhancement.GetFilter().setItem(i, filter.getItem(i));
+                enhancement.GetFilter().setItem(i, filter.getItem(i));
             }
-            currentEnhancement.SetTagFilters( GetFilterTags() );
-            currentEnhancement.SetFilterType(Constants.eFilterType.values()[filterType.get()]);
+            enhancement.SetTagFilters( GetFilterTags() );
+            enhancement.SetFilterType(Constants.eFilterType.values()[filterType.get()]);
         }
     }
 
@@ -139,43 +164,6 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     public SubScreen CreateScreen(MultiScreen<?> parentScreen)
     {
         return new StorageSubScreen(this, parentScreen);
-    }
-
-    @Override
-    public void SetEnhancement(IEnhancement enhancement)
-    {
-        if(enhancement != null)
-        {
-            if(enhancement instanceof ItemStorageEnhancement)
-            {
-                currentEnhancement = (ItemStorageEnhancement)enhancement;
-
-                priority.set(currentEnhancement.GetPriority());
-                for(int i = 0; i < filter.getContainerSize(); ++i)
-                {
-                    filter.setItem(i, currentEnhancement.GetFilter().getItem(i));
-                }
-                if(currentEnhancement.GetTagFilters() != null)
-                {
-                    ArrayList<String> tags = new ArrayList<>();
-                    for (ResourceLocation tag : currentEnhancement.GetTagFilters())
-                    {
-                        tags.add(tag.toString());
-                    }
-                    tagFilters.setArray(tags);
-                }
-                filterType.set(currentEnhancement.GetFilterType().ordinal());
-            }
-            else
-            {
-                LogisticsWoW.LOGGER.warn("Setting a non-provider enhancement to provider enhancement sub container");
-            }
-        }
-        else
-        {
-            currentEnhancement = null;
-            filter.clearContent();
-        }
     }
 
     private void DoPolymorphicFilterSet()
@@ -254,7 +242,7 @@ public class StorageEnhancementSubMenu extends SubMenu implements IEnhancementSu
     {
         this.filterType.set(filterType.ordinal());
         //make sure to refresh this
-        SetActive(isActive);
+        OnDataRefresh();
     }
 
     public WispInteractionNodeBase GetConnectedNode()

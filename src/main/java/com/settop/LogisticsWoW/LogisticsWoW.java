@@ -12,8 +12,8 @@ import com.settop.LogisticsWoW.Items.WispCommandStaff;
 import com.settop.LogisticsWoW.Items.WispEnhancementItem;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.ItemTransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskFactory;
-import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
+import com.settop.LogisticsWoW.Wisps.Enhancements.ItemStorageEnhancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTab;
@@ -114,6 +114,7 @@ public class LogisticsWoW
                 CSubWindowStringPropertyUpdatePacket::encode, CSubWindowStringPropertyUpdatePacket::decode,
                 GUIServerMessageHandler::OnMessageReceived,
                 Optional.of(PLAY_TO_SERVER));
+
         MULTI_SCREEN_CHANNEL.registerMessage(6, SWindowStringPropertyPacket.class,
                 SWindowStringPropertyPacket::encode, SWindowStringPropertyPacket::decode,
                 GUIClientMessageHandler::OnMessageReceived,
@@ -201,7 +202,7 @@ public class LogisticsWoW
         public static final RegistryObject<Item> WISP_COMMAND_STAFF_LESSER_ITEM = ITEMS.register("wisp_command_staff_lesser", ()-> new WispCommandStaff(1) );
         public static final RegistryObject<Item> WISP_COMMAND_STAFF_BASIC_ITEM = ITEMS.register("wisp_command_staff_basic", ()-> new WispCommandStaff(2) );
         public static final RegistryObject<Item> WISP_COMMAND_STAFF_GREATER_ITEM = ITEMS.register("wisp_command_staff_greater", ()-> new WispCommandStaff(3) );
-        public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(EnhancementTypes.STORAGE) );
+        public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(ItemStorageEnhancement.FACTORY) );
 
     }
 

@@ -308,9 +308,9 @@ public class StorageSubScreen extends SubScreen
 
             priorityButton.active = priorityButton.visible = active;
             filterTypeCycle.active = filterTypeCycle.visible = active;
-            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Type;
         }
 
+        polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Type;
         tagSelection.active = tagSelection.visible = active && (providerContainer.GetFilterType() == Constants.eFilterType.Tag);
     }
 }

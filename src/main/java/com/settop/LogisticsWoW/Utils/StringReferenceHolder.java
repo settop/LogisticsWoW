@@ -7,7 +7,7 @@ public abstract class StringReferenceHolder
     {
         return new StringReferenceHolder()
         {
-            private String value;
+            private String value = "";
             private boolean isDirty = false;
 
             public String get()

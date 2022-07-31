@@ -17,6 +17,15 @@ public class WispEnhancementSlot extends Slot implements IActivatableSlot
     @Override
     public boolean mayPlace(ItemStack stack)
     {
+        if(!(stack.getItem() instanceof WispEnhancementItem))
+        {
+            return false;
+        }
+        WispEnhancementItem enhancementItem = (WispEnhancementItem)stack.getItem();
+        if(enhancementItem.AllowMultiplePerNode())
+        {
+            return true;
+        }
         for(int i = 0; i < container.getContainerSize(); ++i)
         {
             if(container.getItem(i).getItem() == stack.getItem())
@@ -25,7 +34,7 @@ public class WispEnhancementSlot extends Slot implements IActivatableSlot
                 return false;
             }
         }
-        return stack.getItem() instanceof WispEnhancementItem;
+        return true;
     }
 
     @Override

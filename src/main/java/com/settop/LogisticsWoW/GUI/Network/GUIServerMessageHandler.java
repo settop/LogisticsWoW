@@ -103,17 +103,30 @@ public class GUIServerMessageHandler
         }
 
         MultiScreenMenu multiScreenContainer = (MultiScreenMenu)sendingPlayer.containerMenu;
-        List<SubMenu> subContainers = multiScreenContainer.GetSubMenus();
-
-        if(message.GetSubWindowID() >= subContainers.size())
+        if(message.GetSubWindowID() == MultiScreenMenu.TEMP_MENU_ID)
         {
-            LogisticsWoW.LOGGER.error("Invalid sub window id for SubContainerDirectionChange");
-            return;
+            SubMenu subContainer = multiScreenContainer.GetTempSubMenu();
+            if(subContainer == null)
+            {
+                LogisticsWoW.LOGGER.error("Invalid temp sub window for SubContainerDirectionChange");
+                return;
+            }
+
         }
-
-        SubMenu subContainer = subContainers.get(message.GetSubWindowID());
+        else
         {
-            LogisticsWoW.LOGGER.error("Unknown sub container type for SubContainerDirectionChange");
+            List<SubMenu> subContainers = multiScreenContainer.GetSubMenus();
+
+            if(message.GetSubWindowID() >= subContainers.size())
+            {
+                LogisticsWoW.LOGGER.error("Invalid sub window id for SubContainerDirectionChange");
+                return;
+            }
+
+            SubMenu subContainer = subContainers.get(message.GetSubWindowID());
+            {
+                LogisticsWoW.LOGGER.error("Unknown sub container type for SubContainerDirectionChange");
+            }
         }
     }
 
@@ -205,24 +218,36 @@ public class GUIServerMessageHandler
         }
 
         MultiScreenMenu multiScreenContainer = (MultiScreenMenu)sendingPlayer.containerMenu;
-        List<SubMenu> subContainers = multiScreenContainer.GetSubMenus();
-
-        if(message.GetSubWindowID() >= subContainers.size())
+        if(message.GetSubWindowID() == MultiScreenMenu.TEMP_MENU_ID)
         {
-            LogisticsWoW.LOGGER.error("Invalid sub window id for SubWindowPropertyUpdatePacket");
-            return;
+            SubMenu subContainer = multiScreenContainer.GetTempSubMenu();
+            if(subContainer == null)
+            {
+                LogisticsWoW.LOGGER.error("Invalid temp sub window for SubWindowPropertyUpdatePacket");
+                return;
+            }
+            subContainer.HandlePropertyUpdate(message.GetPropertyID(), message.GetValue());
         }
-
-        SubMenu subContainer = subContainers.get(message.GetSubWindowID());
-        if(subContainer == null)
+        else
         {
-            LogisticsWoW.LOGGER.error("Invalid sub window for SubWindowPropertyUpdatePacket");
-            return;
-        }
+            List<SubMenu> subContainers = multiScreenContainer.GetSubMenus();
 
-        subContainer.HandlePropertyUpdate(message.GetPropertyID(), message.GetValue());
+            if(message.GetSubWindowID() >= subContainers.size())
+            {
+                LogisticsWoW.LOGGER.error("Invalid sub window id for SubWindowPropertyUpdatePacket");
+                return;
+            }
+
+            SubMenu subContainer = subContainers.get(message.GetSubWindowID());
+            if(subContainer == null)
+            {
+                LogisticsWoW.LOGGER.error("Invalid sub window for SubWindowPropertyUpdatePacket");
+                return;
+            }
+
+            subContainer.HandlePropertyUpdate(message.GetPropertyID(), message.GetValue());
+        }
     }
-
 
     public static void OnMessageReceived(final CSubWindowStringPropertyUpdatePacket message, Supplier<NetworkEvent.Context> ctxSupplier)
     {
@@ -266,21 +291,35 @@ public class GUIServerMessageHandler
         }
 
         MultiScreenMenu multiScreenContainer = (MultiScreenMenu)sendingPlayer.containerMenu;
-        List<SubMenu> subContainers = multiScreenContainer.GetSubMenus();
-
-        if(message.GetSubWindowID() >= subContainers.size())
+        if(message.GetSubWindowID() == MultiScreenMenu.TEMP_MENU_ID)
         {
-            LogisticsWoW.LOGGER.error("Invalid sub window id for SubWindowStringPropertyUpdatePacket");
-            return;
+            SubMenu subContainer = multiScreenContainer.GetTempSubMenu();
+            if(subContainer == null)
+            {
+                LogisticsWoW.LOGGER.error("Invalid temp sub window for SubWindowStringPropertyUpdatePacket");
+                return;
+            }
+            subContainer.HandleStringPropertyUpdate(message.GetPropertyID(), message.GetValue());
         }
-
-        SubMenu subContainer = subContainers.get(message.GetSubWindowID());
-        if(subContainer == null)
+        else
         {
-            LogisticsWoW.LOGGER.error("Invalid sub window for SubWindowStringPropertyUpdatePacket");
-            return;
-        }
+            List<SubMenu> subContainers = multiScreenContainer.GetSubMenus();
 
-        subContainer.HandleStringPropertyUpdate(message.GetPropertyID(), message.GetValue());
+            if(message.GetSubWindowID() >= subContainers.size())
+            {
+                LogisticsWoW.LOGGER.error("Invalid sub window id for SubWindowStringPropertyUpdatePacket");
+                return;
+            }
+
+            SubMenu subContainer = subContainers.get(message.GetSubWindowID());
+            if(subContainer == null)
+            {
+                LogisticsWoW.LOGGER.error("Invalid sub window for SubWindowStringPropertyUpdatePacket");
+                return;
+            }
+
+            subContainer.HandleStringPropertyUpdate(message.GetPropertyID(), message.GetValue());
+        }
     }
+
 }

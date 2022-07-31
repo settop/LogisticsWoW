@@ -20,6 +20,7 @@ public abstract class SubMenu
     private WeakReference<MultiScreenMenu> parentContainer;
     private int subWindowId = -1;
     protected boolean isActive = true;
+    protected boolean isLoaded = true;
 
     private int xPos;
     private int yPos;
@@ -47,9 +48,20 @@ public abstract class SubMenu
         {
             if(slot instanceof IActivatableSlot)
             {
-                ((IActivatableSlot)slot).SetActive(active);
+                ((IActivatableSlot)slot).SetActive(IsActive());
             }
         }
+    }
+
+    public void OnDataRefresh()
+    {
+
+    }
+
+    public void SetLoadingState(boolean loading)
+    {
+        this.isLoaded = !loading;
+        SetActive(isActive);
     }
 
     public MultiScreenMenu GetParentContainer() { return parentContainer.get(); }
@@ -89,7 +101,7 @@ public abstract class SubMenu
 
     public boolean IsActive()
     {
-        return isActive;
+        return isActive && isLoaded;
     }
 
     public int GetXPos(){ return xPos; }

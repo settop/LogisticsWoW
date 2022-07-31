@@ -8,7 +8,6 @@ import com.settop.LogisticsWoW.GUI.Network.Packets.CContainerTabSelected;
 import com.settop.LogisticsWoW.GUI.SubMenus.PlayerInventorySubMenu;
 import com.settop.LogisticsWoW.GUI.BasicWispMenu;
 import com.settop.LogisticsWoW.Wisps.WispInteractionContents;
-import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
@@ -144,11 +143,11 @@ public class BasicWispContainerScreen extends MultiScreen<BasicWispMenu> impleme
 
         //add the tabs from right to left to ensure that tooltips render over correctly
 
-       for(int i = 0; i < EnhancementTypes.NUM; ++i)
+       for(int i = 0; i < menu.GetEnhancements().size(); ++i)
         {
-            final int j = EnhancementTypes.NUM - 1 - i;
+            final int j = menu.GetEnhancements().size() - 1 - i;
             tabs.add(addRenderableWidget( new TabButton(0, 0, 32, 20, new TextComponent(""), this,
-                    (Button button, PoseStack matrix, int mouseX, int mouseY)->this.renderTooltip(matrix, new TranslatableComponent(EnhancementTypes.values()[j].GetName()), mouseX, mouseY))));
+                    (Button button, PoseStack matrix, int mouseX, int mouseY)->this.renderTooltip(matrix, new TranslatableComponent(menu.GetEnhancements().get(j).GetName()), mouseX, mouseY))));
         }
        tabs.add(addRenderableWidget( new TabButton(0, 0, 32, 20, new TextComponent(""), this,
             (Button button, PoseStack matrix, int mouseX, int mouseY)->this.renderTooltip(matrix, new TranslatableComponent("logwow.wisp_contents"), mouseX, mouseY)) ));

@@ -3,9 +3,7 @@ package com.settop.LogisticsWoW.GUI;
 import com.settop.LogisticsWoW.GUI.SubMenus.*;
 import com.settop.LogisticsWoW.Items.WispCommandStaff;
 import com.settop.LogisticsWoW.LogisticsWoW;
-import com.settop.LogisticsWoW.Utils.BoolArray;
 import com.settop.LogisticsWoW.Wisps.WispInteractionContents;
-import com.settop.LogisticsWoW.Wisps.Enhancements.EnhancementTypes;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import com.settop.LogisticsWoW.Wisps.WispInteractionNodeBase;
 import net.minecraft.core.BlockPos;
@@ -32,10 +30,13 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
     private final BlockState blockState;
     private final BlockEntity blockEntity;
     private final DataSlot openSubContainerIndex;
-    private final List<SubMenu> tabbedContainers;
     private final CommandStaffInvSubMenu commandStaffInvSubMenu;
     private final PlayerInventorySubMenu playerInvSubMenu;
-    private final BoolArray enhancementPresent;
+    private final WispContentsMenu wispContentsSubMenu;
+
+    private final ArrayList<IEnhancement> currentEnhancements;
+
+    private SubMenu activeEnhancementSubMenu = null;
 
     public static BasicWispMenu CreateMenu(int id, Inventory playerInventory, FriendlyByteBuf extraData)
     {
@@ -72,7 +73,7 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
 
         commandStaffInvSubMenu = new CommandStaffInvSubMenu(staffInv, PLAYER_INVENTORY_XPOS, STAFF_INVENTORY_YPOS);
         playerInvSubMenu = new PlayerInventorySubMenu(playerInventory, PLAYER_INVENTORY_XPOS, PLAYER_INVENTORY_YPOS, staffSlot);
-        WispContentsMenu wispContentsContainer = new WispContentsMenu(inWispContents, WISP_SLOT_XPOS, WISP_SLOT_YPOS);
+        wispContentsSubMenu = new WispContentsMenu(inWispContents, WISP_SLOT_XPOS, WISP_SLOT_YPOS);
 
         wispContents = inWispContents;
         parentWisp = inParentWisp;
@@ -80,31 +81,22 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
         blockEntity = inBlockEntity;
         openSubContainerIndex = DataSlot.standalone();
         openSubContainerIndex.set(0);
-        enhancementPresent = new BoolArray(EnhancementTypes.NUM);
 
         addDataSlot(openSubContainerIndex);
-        addDataSlots(enhancementPresent);
-
-        tabbedContainers = new ArrayList<>();
-        tabbedContainers.add(wispContentsContainer);
-        for(int i = 0; i < EnhancementTypes.NUM; ++i)
-        {
-            SubMenu enhancementSubContainer = EnhancementTypes.values()[i].GetFactory().CreateSubMenu(0, 0, blockState, blockEntity, parentWisp);
-            enhancementSubContainer.SetActive(false);
-            tabbedContainers.add(enhancementSubContainer);
-        }
 
         List<SubMenu> subContainers = new ArrayList<>();
         subContainers.add(commandStaffInvSubMenu);
         subContainers.add(playerInvSubMenu);
-        subContainers.addAll(tabbedContainers);
-        SetSubContainers(subContainers);
+        subContainers.add(wispContentsSubMenu);
+        SetSubMenus(subContainers);
+        ReserveTempSubMenuSlots(IEnhancement.MAX_NUM_GUI_SLOTS, IEnhancement.MAX_NUM_GUI_DATA, IEnhancement.MAX_NUM_GUI_STRINGS);
 
-        if(!playerInventory.player.level.isClientSide())
+        currentEnhancements = new ArrayList<>(inWispContents.getContainerSize());
+        for(int i = 0; i < inWispContents.getContainerSize(); ++i)
         {
-            //only care about this on the server
-            wispContents.SetListener(this);
+            currentEnhancements.add(null);
         }
+        wispContents.SetListener(this);
     }
 
     @Override
@@ -126,16 +118,22 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
 
         if(sourceSlotIndex < playerInvSlotCount)
         {
-            int openIndex = openSubContainerIndex.get();
+            boolean onBaseScreen = openSubContainerIndex.get() == 0;
             int slotStart = playerInvSlotCount;
-            for(int i = 0; i < openIndex; ++i)
+            int slotEnd;
+            if(onBaseScreen)
             {
-                slotStart += tabbedContainers.get(i).inventorySlots.size();
+                slotEnd = slotStart + wispContentsSubMenu.inventorySlots.size();
             }
-            int slotEnd = slotStart + tabbedContainers.get(openIndex).inventorySlots.size();
+            else
+            {
+                slotStart += wispContentsSubMenu.inventorySlots.size();
+                slotEnd = slotStart + GetTempSubMenu().inventorySlots.size();
+            }
             //from the player inventory
             if (!moveItemStackTo(sourceStack, slotStart, slotEnd, false))
             {
+                moveItemStackToFakeSlots(sourceStack, slotStart, slotEnd);
                 return ItemStack.EMPTY;
             }
         }
@@ -190,38 +188,30 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
 
     private void UpdateActiveSubContainers()
     {
-        for(int i = 0; i < tabbedContainers.size(); ++i)
+        if(activeEnhancementSubMenu != null)
         {
-            tabbedContainers.get(i).SetActive(i == openSubContainerIndex.get());
+            RemoveTempSubMenu(activeEnhancementSubMenu);
+            activeEnhancementSubMenu = null;
+        }
+        wispContentsSubMenu.SetActive(openSubContainerIndex.get() == 0);
+        if(openSubContainerIndex.get() != 0)
+        {
+            IEnhancement enhancement = currentEnhancements.get(openSubContainerIndex.get() - 1);
+            if(enhancement != null)
+            {
+                activeEnhancementSubMenu = enhancement.CreateSubMenu(0, 0, blockState, blockEntity, parentWisp);
+                AddTempSubMenu(activeEnhancementSubMenu);
+            }
         }
     }
 
     @Override
     public void OnEnhancementChange(int index, IEnhancement previousEnhancement, IEnhancement nextEnhancement)
     {
-        if(previousEnhancement != null)
-        {
-            enhancementPresent.SetBool(previousEnhancement.GetType().ordinal(), false);
-            SubMenu enhancementContainer = tabbedContainers.get(previousEnhancement.GetType().ordinal() + 1);
-            IEnhancementSubMenu enhanceCont = (IEnhancementSubMenu)enhancementContainer;
-            enhanceCont.SetEnhancement(null);
-        }
-
-        if(nextEnhancement != null)
-        {
-            enhancementPresent.SetBool(nextEnhancement.GetType().ordinal(), true);
-            SubMenu enhancementContainer = tabbedContainers.get(nextEnhancement.GetType().ordinal() + 1);
-            IEnhancementSubMenu enhanceCont = (IEnhancementSubMenu)enhancementContainer;
-            enhanceCont.SetEnhancement(nextEnhancement);
-        }
+        currentEnhancements.set(index, nextEnhancement);
     }
 
     public WispInteractionContents GetWispContents() { return wispContents; }
-
-    public SubMenu GetEnhancementSubContainer(EnhancementTypes enhancementType)
-    {
-        return tabbedContainers.get(enhancementType.ordinal() + 1);
-    }
 
     public CommandStaffInvSubMenu GetCommandStaffInvSubMenu()
     {
@@ -233,15 +223,17 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
         return playerInvSubMenu;
     }
 
+    public ArrayList<IEnhancement> GetEnhancements() { return currentEnhancements; }
+
     public boolean IsTabActive(int index)
     {
         if(index == 0)
         {
             return true;
         }
-        else if(index - 1 < EnhancementTypes.NUM)
+        else if(index - 1 < currentEnhancements.size())
         {
-            return enhancementPresent.GetBool(index - 1);
+            return currentEnhancements.get(index - 1) != null;
         }
         else
         {
@@ -261,9 +253,13 @@ public class BasicWispMenu extends MultiScreenMenu implements WispInteractionCon
             LogisticsWoW.LOGGER.warn("Setting selected tab to an inactive tab");
             return;
         }
-        if(index >= tabbedContainers.size())
+        if(index >= currentEnhancements.size() + 1)
         {
             LogisticsWoW.LOGGER.error("Setting selected tab to an invalid tab");
+            return;
+        }
+        if(openSubContainerIndex.get() == index)
+        {
             return;
         }
 

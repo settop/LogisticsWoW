@@ -63,14 +63,16 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
     public static final GuiPart BUTTON_B = new GuiPart(40, 133, 20, 20);
     public static final GuiPart OVERLAY_ORANGE = new GuiPart(60, 113, 20, 20);
     public static final GuiPart OVERLAY_BLUE  = new GuiPart(60, 133, 20, 20);
-    public static final GuiPart BUTTON_DIRECTIONS[] = {BUTTON_B, BUTTON_T, BUTTON_N, BUTTON_S, BUTTON_W, BUTTON_E};
+    public static final GuiPart[] BUTTON_DIRECTIONS = {BUTTON_B, BUTTON_T, BUTTON_N, BUTTON_S, BUTTON_W, BUTTON_E};
     public static final GuiPart OVERLAY_SIDE_CONFIG = new GuiPart(128, 0 , 32, 32);
     public static final GuiPart OVERLAY_BLACKLIST = new GuiPart(160, 0 , 32, 32);
     public static final GuiPart OVERLAY_WHITELIST = new GuiPart(192, 0 , 32, 32);
     public static final GuiPart OVERLAY_ARROW = new GuiPart(224, 0 , 32, 32);
 
     private List<SubScreen> subScreens;
-    private ArrayList<ScreenPopup> openPopups = new ArrayList<>();
+    private final ArrayList<ScreenPopup> openPopups = new ArrayList<>();
+
+    private SubScreen tempSubScreen = null;
 
     public MultiScreen(T screenContainer, Inventory inv, Component titleIn)
     {
@@ -87,6 +89,10 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
                 subScreen.renderBg(matrixStack, partialTicks, mouseX, mouseY);
             }
         }
+        if(tempSubScreen != null)
+        {
+            tempSubScreen.renderBg(matrixStack, partialTicks, mouseX, mouseY);
+        }
     }
 
     @Override
@@ -98,6 +104,10 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
             {
                 subScreen.renderLabels(matrixStack, x, y);
             }
+        }
+        if(tempSubScreen != null)
+        {
+            tempSubScreen.renderLabels(matrixStack, x, y);
         }
     }
 
@@ -132,6 +142,42 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
                 {
                     subScreen.SetActive(false);
                 }
+            }
+        }
+        SubMenu currentTempSubMenu = tempSubScreen != null ? tempSubScreen.GetSubContainer() : null;
+        if(menu.GetTempSubMenu() != currentTempSubMenu)
+        {
+            if(menu.GetTempSubMenu() != null)
+            {
+                tempSubScreen = menu.GetTempSubMenu().CreateScreen(this);
+                tempSubScreen.init(leftPos, topPos);
+                for (AbstractWidget widget : tempSubScreen.GetWidgets())
+                {
+                    addRenderableWidget(widget);
+                    widget.visible = false;
+                    widget.active = false;
+                }
+            }
+            else
+            {
+                for (AbstractWidget widget : tempSubScreen.GetWidgets())
+                {
+                    removeWidget(widget);
+                }
+                tempSubScreen.onClose();
+                tempSubScreen = null;
+            }
+        }
+        if(tempSubScreen != null)
+        {
+            if(tempSubScreen.GetSubContainer().IsActive())
+            {
+                tempSubScreen.SetActive(true);
+                tempSubScreen.render(matrixStack, mouseX, mouseY, partialTicks);
+            }
+            else
+            {
+                tempSubScreen.SetActive(false);
             }
         }
         for(ScreenPopup popup : openPopups)
@@ -218,6 +264,18 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
                 }
             }
         }
+
+        if(menu.GetTempSubMenu() != null)
+        {
+            tempSubScreen = menu.GetTempSubMenu().CreateScreen(this);
+            tempSubScreen.init(leftPos, topPos);
+            for (AbstractWidget widget : tempSubScreen.GetWidgets())
+            {
+                addRenderableWidget(widget);
+                widget.visible = false;
+                widget.active = false;
+            }
+        }
     }
 
     @Override
@@ -229,6 +287,10 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
             {
                 subScreen.onClose();
             }
+        }
+        if(tempSubScreen != null)
+        {
+            tempSubScreen.onClose();
         }
         super.onClose();
     }

@@ -40,9 +40,6 @@ public class ItemStorageEnhancement extends StorageEnhancement
         {
             return new ItemStorageEnhancement();
         }
-
-        @Override
-        public SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp) { return new StorageEnhancementSubMenu(xPos, yPos, blockState, blockEntity, parentWisp); }
     }
 
     private class ItemTracker extends ResourceSource<ItemStack>
@@ -222,9 +219,15 @@ public class ItemStorageEnhancement extends StorageEnhancement
     }
 
     @Override
-    public EnhancementTypes GetType()
+    public SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp)
     {
-        return EnhancementTypes.STORAGE;
+        return new StorageEnhancementSubMenu(this, xPos, yPos, blockState, blockEntity, parentWisp);
+    }
+
+    @Override
+    public String GetName()
+    {
+        return "item.logwow.wisp_storage_enhancement";
     }
 
     @Override
@@ -287,6 +290,7 @@ public class ItemStorageEnhancement extends StorageEnhancement
     @Override
     public void OnDisconnectFromNetwork()
     {
+        super.OnDisconnectFromNetwork();
         itemSources.forEach(ItemTracker::SetInvalid);
         itemSources.clear();
         if(itemSink != null)

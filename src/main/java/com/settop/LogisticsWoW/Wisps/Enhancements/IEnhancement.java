@@ -13,15 +13,19 @@ import java.util.List;
 
 public interface IEnhancement
 {
+    public static int MAX_NUM_GUI_SLOTS = 33;
+    public static int MAX_NUM_GUI_DATA = 2;
+    public static int MAX_NUM_GUI_STRINGS = 1;
+
     interface IFactory
     {
         IEnhancement Create();
-        SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp);
     }
 
     CompoundTag SerializeNBT();
     void DeserializeNBT(CompoundTag nbt);
-    EnhancementTypes GetType();
+    SubMenu CreateSubMenu(int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp);
+    String GetName();
     void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn);
     void Setup(WispInteractionNodeBase parentWisp);
     void OnConnectToNetwork();
