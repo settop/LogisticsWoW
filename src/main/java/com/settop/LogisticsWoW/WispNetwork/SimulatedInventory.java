@@ -136,20 +136,40 @@ public class SimulatedInventory extends InvWrapper
         container.Reset();
     }
 
-    //turn off the simulation insertion here
-    //since we are going to cache the inserts/extracts
     @NotNull
     @Override
     public ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate)
     {
-        return super.insertItem(slot, stack, false);
+        SimulatedContainer container = (SimulatedContainer)getInv();
+        if(!container.modifiedSlots.containsKey(slot))
+        {
+            //not been modified yet, check this is valid
+            ItemStack remainder = container.wrappedItemHandler.insertItem(slot, stack, true);
+            if(remainder.getCount() == stack.getCount())
+            {
+                //wasn't able to insert in the base, so don't in the simulated
+                return remainder;
+            }
+        }
+        return super.insertItem(slot, stack, simulate);
     }
 
     @NotNull
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate)
     {
-        return super.extractItem(slot, amount, false);
+        SimulatedContainer container = (SimulatedContainer)getInv();
+        if(!container.modifiedSlots.containsKey(slot))
+        {
+            //not been modified yet, check this is valid
+            ItemStack extracted = container.wrappedItemHandler.extractItem(slot, amount, true);
+            if(extracted.isEmpty())
+            {
+                //wasn't able to extract from the base, so don't in the simulated
+                return extracted;
+            }
+        }
+        return super.extractItem(slot, amount, simulate);
     }
 
     @Override

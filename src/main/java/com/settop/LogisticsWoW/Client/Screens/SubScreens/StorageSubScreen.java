@@ -7,6 +7,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.settop.LogisticsWoW.Client.Screens.Popups.PriorityPopup;
 import com.settop.LogisticsWoW.LogisticsWoW;
 import com.settop.LogisticsWoW.Utils.Constants;
+import com.settop.LogisticsWoW.Utils.ItemFilter;
 import com.settop.LogisticsWoW.Wisps.Enhancements.ItemStorageEnhancement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -38,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 
 @OnlyIn(Dist.CLIENT)
-public class StorageSubScreen extends SubScreen
+public class StorageSubScreen extends ItemFilterSubScreen
 {
     public class PriorityButton extends SmallButton
     {
@@ -86,153 +87,13 @@ public class StorageSubScreen extends SubScreen
         }
     }
 
-    public class FilterTypeCycle extends SmallButton
-    {
-        public FilterTypeCycle(int x, int y)
-        {
-            super(x, y, 16, null);
-        }
-
-        @Override
-        public void onPress()
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-
-            int nextValue = providerContainer.GetFilterType().ordinal() + 1;
-            if(nextValue >= Constants.eFilterType.values().length)
-            {
-                nextValue = 0;
-            }
-            providerContainer.SetFilterType(Constants.eFilterType.values()[nextValue]);
-            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.FILTER_TYPE_PROPERTY_ID,  nextValue));
-
-            polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Type;
-        }
-
-        @Override
-        public void renderToolTip(PoseStack matrixStack, int mouseX, int mouseY)
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-            TranslatableComponent text = switch (providerContainer.GetFilterType())
-            {
-                case Type -> new TranslatableComponent("logwow.item_filter");
-                case Tag -> new TranslatableComponent("logwow.tag_filter");
-                case Default -> new TranslatableComponent("logwow.default_store");
-            };
-            GetParentScreen().renderTooltip(matrixStack, text, mouseX, mouseY);
-        }
-
-        @Override
-        public void RenderOverlay(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-            Item renderItem = switch (providerContainer.GetFilterType())
-            {
-                case Type -> Items.IRON_INGOT;
-                case Tag -> Items.NAME_TAG;
-                case Default -> Items.AIR;
-            };
-            ItemStack itemStack = new ItemStack(renderItem);
-            ItemRenderer itemRenderer = Minecraft.getInstance().getItemRenderer();
-
-            matrixStack.pushPose();
-            matrixStack.translate(16, 16, GetParentScreen().getBlitOffset() + 100);
-            matrixStack.scale(1.0F, -1.0F, 1.0F);
-            matrixStack.scale(24.0F, 24.0F, 24.0F);
-
-            MultiBufferSource.BufferSource multibuffersource$buffersource = Minecraft.getInstance().renderBuffers().bufferSource();
-            BakedModel model = itemRenderer.getModel(itemStack, null, null, 0);
-            boolean useFlatLighting = !model.usesBlockLight();
-
-            RenderSystem.setShaderTexture(0, TextureAtlas.LOCATION_BLOCKS);
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            if (useFlatLighting)
-            {
-                Lighting.setupForFlatItems();
-            }
-
-            itemRenderer.render(itemStack, ItemTransforms.TransformType.GUI, false, matrixStack, multibuffersource$buffersource, 15728880, OverlayTexture.NO_OVERLAY, model);
-
-            multibuffersource$buffersource.endBatch();
-            if (useFlatLighting)
-            {
-                Lighting.setupFor3DItems();
-            }
-
-            matrixStack.popPose();
-        }
-    }
-
-    public class PolymorphicFilterButton extends SmallButton
-    {
-        private int lastTextWidth = 8;
-
-        public PolymorphicFilterButton(int x, int y)
-        {
-            super(x, y, 16, new TextComponent(""));
-        }
-
-        @Override
-        public void onPress()
-        {
-            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.POLYMORPHIC_PROPERTY_ID,  1));
-        }
-
-        @Override
-        public void renderToolTip(@NotNull PoseStack matrixStack, int mouseX, int mouseY)
-        {
-            GetParentScreen().renderTooltip(matrixStack, new TranslatableComponent("logwow.filter_add_contents"), mouseX, mouseY);
-        }
-
-        @Override
-        public void RenderOverlay(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
-        {
-        }
-    }
-
-    public class FilterTags extends TagListSelection
-    {
-
-        public FilterTags(Font font, int x, int y, int width, int height, TextComponent title, FakeSlot tagFetchSlot)
-        {
-            super(font, x, y, width, height, title, tagFetchSlot);
-        }
-
-        @Override
-        protected ArrayList<String> GetTagList()
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-            return providerContainer.GetFilterTags();
-        }
-
-        @Override
-        protected void UpdateTagList(ArrayList<String> updatedList)
-        {
-            StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-            String tagList = providerContainer.SetFilterTags(updatedList);
-            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubWindowStringPropertyUpdatePacket(GetParentScreen().getMenu().containerId, GetSubContainer().GetSubWindowID(), StorageEnhancementSubMenu.FILTER_TAGS_STRING_PROPERTY_ID,  tagList));
-
-        }
-
-        @Override
-        public void updateNarration(NarrationElementOutput narration)
-        {
-            narration.add(NarratedElementType.TITLE, getMessage());
-        }
-    }
-
     private PriorityPopup priorityPopup;
     private PriorityButton priorityButton;
-    private FilterTypeCycle filterTypeCycle;
-    private PolymorphicFilterButton polymorphicFilterButton;
-    private FilterTags tagSelection;
 
 
     public StorageSubScreen(StorageEnhancementSubMenu container, MultiScreen<?> parentScreen)
     {
-        super(container, parentScreen);
+        super(container, parentScreen, 1);
     }
 
     @Override
@@ -244,16 +105,6 @@ public class StorageSubScreen extends SubScreen
         int yPos = GetSubContainer().GetYPos();
 
         StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-
-        int tagSelectionXOffset = xPos + 21;
-        tagSelection = AddWidget(new FilterTags
-                (
-                        Minecraft.getInstance().font,
-                        guiLeft + tagSelectionXOffset, guiTop + yPos,
-                        GetParentScreen().getXSize() - tagSelectionXOffset, 80,
-                        new TextComponent(""),
-                        providerContainer.GetTagFetchHelperSlot()
-                ));
 
         priorityPopup = new PriorityPopup(guiLeft + xPos + 16, guiTop + yPos + 16)
         {
@@ -271,46 +122,12 @@ public class StorageSubScreen extends SubScreen
         };
 
         priorityButton = AddWidget(new PriorityButton(guiLeft + xPos, guiTop + yPos ));
-        filterTypeCycle = AddWidget(new FilterTypeCycle(guiLeft + xPos, guiTop + yPos + 16));
-        polymorphicFilterButton = AddWidget(new PolymorphicFilterButton(guiLeft + xPos, guiTop + yPos + 56));
-    }
-
-    @Override
-    public void renderBg(PoseStack matrixStack, float partialTicks, int mouseX, int mouseY)
-    {
-        StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-
-        if(providerContainer.GetFilterType() == Constants.eFilterType.Type)
-        {
-            for(int r = 0; r < ItemStorageEnhancement.FILTER_NUM_ROWS; ++r)
-            {
-                MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.FILTER_SLOT_X, guiTop + StorageEnhancementSubMenu.FILTER_SLOT_Y + r * Client.SLOT_Y_SPACING, getBlitOffset(), ItemStorageEnhancement.FILTER_NUM_COLUMNS);
-            }
-        }
-        else if(providerContainer.GetFilterType() == Constants.eFilterType.Tag)
-        {
-            MultiScreen.RenderSlotRowBackground(this, matrixStack, guiLeft + StorageEnhancementSubMenu.TAG_FETCH_HELPER_SLOT_X, guiTop + StorageEnhancementSubMenu.TAG_FETCH_HELPER_SLOT_Y, getBlitOffset(), 1);
-        }
-    }
-
-    @Override
-    public void render(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
-    {
     }
 
     @Override
     public void SetActive(boolean active)
     {
-        StorageEnhancementSubMenu providerContainer = (StorageEnhancementSubMenu)GetSubContainer();
-        if(this.active != active)
-        {
-            this.active = active;
-
-            priorityButton.active = priorityButton.visible = active;
-            filterTypeCycle.active = filterTypeCycle.visible = active;
-        }
-
-        polymorphicFilterButton.active = polymorphicFilterButton.visible = active && providerContainer.GetFilterType() == Constants.eFilterType.Type;
-        tagSelection.active = tagSelection.visible = active && (providerContainer.GetFilterType() == Constants.eFilterType.Tag);
+        super.SetActive(active);
+        priorityButton.active = priorityButton.visible = active;
     }
 }

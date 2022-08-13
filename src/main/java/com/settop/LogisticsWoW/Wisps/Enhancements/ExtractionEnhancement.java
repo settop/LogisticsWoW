@@ -11,12 +11,17 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.OptionalInt;
 
-public abstract class StorageEnhancement implements IEnhancement
+public abstract class ExtractionEnhancement implements IEnhancement
 {
     private class PeriodicTask implements WispTask
     {
+        private static final int SLEEP_TICK_MOD_AMOUNT = 5;
+
         private boolean active = true;
-        private boolean doneFirstTick = false;
+        private int sequentialSleeps = 0;
+        private int sequentialShortSleeps = 0;
+        private int sequentialLongSleeps = 0;
+        private int sleepTime = Constants.SLEEP_TICK_TIMER;
         @Override
         public int Start(@NotNull WispNetwork network, int startTickTime)
         {
@@ -31,44 +36,60 @@ public abstract class StorageEnhancement implements IEnhancement
             {
                 return OptionalInt.empty();
             }
-            if(RefreshResources() || extractionState != ItemStorageEnhancement.eExtractionState.ASLEEP || !doneFirstTick)
+            //check to see if we have anything not in our filter
+            extractionState = eExtractionState.ASLEEP;
+            for(int i = 0; i < Constants.GetExtractionOperationsPerTick(extractionSpeedRank); ++i)
             {
-                doneFirstTick = true;
-                //check to see if we have anything not in our filter
-                extractionState = ItemStorageEnhancement.eExtractionState.ASLEEP;
-                for(int i = 0; i < Constants.GetExtractionOperationsPerTick(extractionSpeedRank); ++i)
+                eExtractionState nextState = TickExtraction(currentTickTime);
+                if(nextState == eExtractionState.ASLEEP)
                 {
-                    ItemStorageEnhancement.eExtractionState nextState = TickExtraction();
-                    if(nextState == ItemStorageEnhancement.eExtractionState.ASLEEP)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        extractionState = ItemStorageEnhancement.eExtractionState.values()[Math.max(extractionState.ordinal(), nextState.ordinal())];
-                    }
-                }
-                if(extractionState == ItemStorageEnhancement.eExtractionState.ACTIVE)
-                {
-                    return OptionalInt.of(currentTickTime + tickOffset + Constants.GetExtractionTickDelay(extractionSpeedRank));
+                    break;
                 }
                 else
                 {
-                    //Ignore the tick offset whilst sleeping, don't care about missing some ticks whilst asleep
-                    //ToDo: Scale the sleep time based on how active this extraction is
-                    return OptionalInt.of(currentTickTime + Constants.SLEEP_TICK_TIMER);
+                    extractionState = eExtractionState.values()[Math.max(extractionState.ordinal(), nextState.ordinal())];
                 }
             }
-            else
+            if(extractionState == eExtractionState.ACTIVE)
             {
-                //Ignore the tick offset whilst sleeping, don't care about missing some ticks whilst asleep
-                return OptionalInt.of(currentTickTime + Constants.SLEEP_TICK_TIMER);
+                if(sequentialSleeps == 1)
+                {
+                    ++sequentialShortSleeps;
+                    sequentialLongSleeps = 0;
+                    if(sequentialShortSleeps >= 4)
+                    {
+                        //4 times in a row we have done a sleep, then extraction, then sleep
+                        //then shorten the sleep timer
+                        sequentialShortSleeps = 0;
+                        int tickDelay = Constants.GetExtractionTickDelay(extractionSpeedRank);
+                        if(sleepTime > tickDelay)
+                        {
+                            sleepTime = Math.max(tickDelay, sleepTime - SLEEP_TICK_MOD_AMOUNT);
+                        }
+                    }
+                }
+                sequentialSleeps = 0;
+                return OptionalInt.of(currentTickTime + tickOffset + Constants.GetExtractionTickDelay(extractionSpeedRank));
             }
+            //Ignore the tick offset whilst sleeping, don't care about missing some ticks whilst asleep
+            if(sequentialSleeps >= 4)
+            {
+                ++sequentialLongSleeps;
+                sequentialShortSleeps = 0;
+                if(sequentialLongSleeps >= 2)
+                {
+                    if(sleepTime < Constants.SLEEP_TICK_TIMER)
+                    {
+                        sleepTime = Math.min(Constants.SLEEP_TICK_TIMER, sleepTime + SLEEP_TICK_MOD_AMOUNT);
+                    }
+                }
+            }
+            ++sequentialSleeps;
+            return OptionalInt.of(currentTickTime + sleepTime);
         }
     }
 
     //data player can tweak
-    private int priority = 0;
     private Direction invAccessDirection = null;
 
     //operation data
@@ -85,16 +106,17 @@ public abstract class StorageEnhancement implements IEnhancement
     private PeriodicTask currentTask;
     private eExtractionState extractionState = eExtractionState.ASLEEP;
 
-    public abstract boolean RefreshResources();
-    protected abstract eExtractionState TickExtraction();
+    protected abstract eExtractionState TickExtraction(int currentTick);
 
     @Override
     public CompoundTag SerializeNBT()
     {
         CompoundTag nbt = new CompoundTag();
-
-        nbt.putInt("priority", priority);
         nbt.putInt("extractionSpeedRank", extractionSpeedRank);
+        if(invAccessDirection != null)
+        {
+            nbt.putInt("invAccessDirection", invAccessDirection.get3DDataValue());
+        }
 
         return nbt;
     }
@@ -106,13 +128,13 @@ public abstract class StorageEnhancement implements IEnhancement
         {
             return;
         }
-        if (nbt.contains("priority"))
-        {
-            priority = nbt.getInt("priority");
-        }
         if (nbt.contains("extractionSpeedRank"))
         {
             extractionSpeedRank = nbt.getInt("extractionSpeedRank");
+        }
+        if (nbt.contains("invAccessDirection"))
+        {
+            invAccessDirection = Direction.from3DDataValue(nbt.getInt("invAccessDirection"));
         }
     }
 
@@ -148,9 +170,6 @@ public abstract class StorageEnhancement implements IEnhancement
     {
         return parentWisp;
     }
-
-    public int GetPriority() { return priority; }
-    public void SetPriority(int prio) { priority = prio; }
 
     public Direction GetInvAccessDirection() { return invAccessDirection; }
     public void SetInvAccessDirection(Direction invAccessDirection) { this.invAccessDirection = invAccessDirection; }

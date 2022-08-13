@@ -147,6 +147,15 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
         SubMenu currentTempSubMenu = tempSubScreen != null ? tempSubScreen.GetSubContainer() : null;
         if(menu.GetTempSubMenu() != currentTempSubMenu)
         {
+            if(tempSubScreen != null)
+            {
+                for (AbstractWidget widget : tempSubScreen.GetWidgets())
+                {
+                    removeWidget(widget);
+                }
+                tempSubScreen.onClose();
+                tempSubScreen = null;
+            }
             if(menu.GetTempSubMenu() != null)
             {
                 tempSubScreen = menu.GetTempSubMenu().CreateScreen(this);
@@ -157,15 +166,6 @@ public abstract class MultiScreen<T extends MultiScreenMenu> extends AbstractCon
                     widget.visible = false;
                     widget.active = false;
                 }
-            }
-            else
-            {
-                for (AbstractWidget widget : tempSubScreen.GetWidgets())
-                {
-                    removeWidget(widget);
-                }
-                tempSubScreen.onClose();
-                tempSubScreen = null;
             }
         }
         if(tempSubScreen != null)

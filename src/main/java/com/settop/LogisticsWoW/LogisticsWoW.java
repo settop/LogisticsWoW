@@ -13,6 +13,7 @@ import com.settop.LogisticsWoW.Items.WispEnhancementItem;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.ItemTransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskFactory;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
+import com.settop.LogisticsWoW.Wisps.Enhancements.ItemExtractionEnhancement;
 import com.settop.LogisticsWoW.Wisps.Enhancements.ItemStorageEnhancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
@@ -202,7 +203,10 @@ public class LogisticsWoW
         public static final RegistryObject<Item> WISP_COMMAND_STAFF_LESSER_ITEM = ITEMS.register("wisp_command_staff_lesser", ()-> new WispCommandStaff(1) );
         public static final RegistryObject<Item> WISP_COMMAND_STAFF_BASIC_ITEM = ITEMS.register("wisp_command_staff_basic", ()-> new WispCommandStaff(2) );
         public static final RegistryObject<Item> WISP_COMMAND_STAFF_GREATER_ITEM = ITEMS.register("wisp_command_staff_greater", ()-> new WispCommandStaff(3) );
+
+        // Enhancement Items
         public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(ItemStorageEnhancement.FACTORY) );
+        public static final RegistryObject<Item> WISP_ITEM_EXTRACTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_extraction_enhancement", () -> new WispEnhancementItem(ItemExtractionEnhancement.FACTORY) );
 
     }
 

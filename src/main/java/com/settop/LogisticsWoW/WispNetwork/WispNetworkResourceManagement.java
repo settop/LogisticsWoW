@@ -124,7 +124,7 @@ public class WispNetworkResourceManagement<T>
         });
     }
 
-    public <U> void AddResourceSink(@Nonnull ResourceSink<T> sink, Constants.eFilterType filterType, @Nonnull HashSet<U> typeFilter, @Nonnull ArrayList<ITag<U>> tagFilter)
+    public <U> void AddResourceSink(@Nonnull ResourceSink<T> sink, Constants.eFilterType filterType, @Nonnull Set<U> typeFilter, @Nonnull ArrayList<ITag<U>> tagFilter)
     {
         switch (filterType)
         {

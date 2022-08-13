@@ -14,7 +14,7 @@ import java.util.List;
 public interface IEnhancement
 {
     public static int MAX_NUM_GUI_SLOTS = 33;
-    public static int MAX_NUM_GUI_DATA = 2;
+    public static int MAX_NUM_GUI_DATA = 4;
     public static int MAX_NUM_GUI_STRINGS = 1;
 
     interface IFactory

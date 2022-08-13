@@ -45,6 +45,7 @@ public class ReservableInventory extends Invalidable
     private final ArrayList<ReservationCollection> reservedItems = new ArrayList<>();
     private final IItemHandler baseInv;
     private final SimulatedInventory simulatedInventory;
+    private int lastRefreshTick = 0;
 
     public ReservableInventory(@Nonnull IItemHandler baseInv)
     {
@@ -62,6 +63,15 @@ public class ReservableInventory extends Invalidable
             {
                 reservation.SetInvalid();
             }
+        }
+    }
+
+    public void RefreshCacheThisTick(int currentTick)
+    {
+        if(lastRefreshTick != currentTick)
+        {
+            RefreshCache();
+            lastRefreshTick = currentTick;
         }
     }
 

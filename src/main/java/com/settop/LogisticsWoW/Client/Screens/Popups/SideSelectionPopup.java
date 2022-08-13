@@ -3,12 +3,12 @@ package com.settop.LogisticsWoW.Client.Screens.Popups;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.settop.LogisticsWoW.LogisticsWoW;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
@@ -16,48 +16,43 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import com.settop.LogisticsWoW.Client.Screens.MultiScreen;
-import com.settop.LogisticsWoW.GUI.Network.Packets.CSubContainerDirectionChange;
-import com.settop.LogisticsWoW.Utils.BoolArray;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class SideSelectionPopup extends ScreenPopup
+public abstract class SideSelectionPopup extends ScreenPopup
 {
-
+    private static final String[] BUTTON_NAMES = {"B", "T", "N", "S", "W", "E"};
     public class FaceButton extends AbstractButton
     {
         private final Direction direction;
-        private final BlockState blockState;
-        private BoolArray setDirections;
-        private final int windowID;
-        private final int subWindowID;
 
-        public FaceButton(BlockState blockState, BoolArray setDirections, int windowID, int subWindowID, int x, int y, int width, int height, Direction direction)
+        public FaceButton(int x, int y, int width, int height, Direction direction)
         {
             super(x, y, width, height, null);
             this.direction = direction;
-            this.blockState = blockState;
-            this.setDirections = setDirections;
-            this.windowID = windowID;
-            this.subWindowID = subWindowID;
         }
 
         @Override
         public void onPress()
         {
-            int d = direction.ordinal();
-            boolean isDown = setDirections.GetBool(direction.ordinal());
-            boolean nextIsDown = !isDown;
-            setDirections.SetBool(d, nextIsDown);
-
-            LogisticsWoW.MULTI_SCREEN_CHANNEL.sendToServer(new CSubContainerDirectionChange(windowID, subWindowID, direction, nextIsDown));
+            if(direction == selectedDirection)
+            {
+                selectedDirection = null;
+                OnSelectedDirectionChange(null);
+            }
+            else
+            {
+                selectedDirection = direction;
+                OnSelectedDirectionChange(direction);
+            }
         }
 
-        public void renderButton(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
+        public void renderButton(@NotNull PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
         {
-            boolean isDown = setDirections.get(direction.ordinal()) != 0;
+            boolean isDown = selectedDirection == direction;
 
             Minecraft minecraft = Minecraft.getInstance();
             BakedModel blockModel = Minecraft.getInstance().getBlockRenderer().getBlockModel(blockState);
@@ -82,36 +77,41 @@ public class SideSelectionPopup extends ScreenPopup
             }
             else
             {
+                MultiScreen.GuiPart buttonPart = isHoveredOrFocused() ? MultiScreen.BUTTON_HOVERED : MultiScreen.BUTTON;
+
+                matrixStack.pushPose();
+                matrixStack.translate(this.x, this.y, 0);
+                matrixStack.scale((float)BUTTON_SIZE / buttonPart.width, (float)BUTTON_SIZE / buttonPart.height, 1.f);
+
                 RenderSystem.setShaderTexture(0, MultiScreen.GUI_PARTS_TEXTURE);
-                RenderSystem.enableDepthTest();
-                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, this.alpha);
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
-                RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+                blit(matrixStack, 0, 0, buttonPart.uStart, buttonPart.vStart, buttonPart.width, buttonPart.height );
 
-                MultiScreen.GuiPart sidePart = MultiScreen.BUTTON_DIRECTIONS[direction.get3DDataValue()];
+                matrixStack.translate(8.f,5.f, getBlitOffset() + 1.f);
+                float textScale = 3.f;
+                matrixStack.scale(textScale, textScale, 1.f);
+                Minecraft.getInstance().font.draw(matrixStack, BUTTON_NAMES[direction.get3DDataValue()], 0, 0, 0x0f0f0f);
 
-                blit(matrixStack, this.x, this.y, sidePart.uStart, sidePart.vStart, sidePart.width, sidePart.height );
+                matrixStack.popPose();
                 this.renderBg(matrixStack, minecraft, mouseX, mouseY);
             }
 
             if(isDown)
             {
                 RenderSystem.setShaderTexture(0, MultiScreen.GUI_PARTS_TEXTURE);
-                MultiScreen.GuiPart overlayPart = MultiScreen.OVERLAY_BLUE;
+                MultiScreen.GuiPart overlayPart = isExtraction ? MultiScreen.OVERLAY_ORANGE : MultiScreen.OVERLAY_BLUE;
                 blit(matrixStack, this.x, this.y, overlayPart.uStart, overlayPart.vStart, overlayPart.width, overlayPart.height );
             }
         }
 
         @Override
-        public void updateNarration(NarrationElementOutput p_169152_)
+        public void updateNarration(@NotNull NarrationElementOutput narrationElementOutput)
         {
         }
     }
 
     static public final int BUTTON_SIZE = 20;
 
-    static public final Vec3i OFFSETS[] = {
+    static public final Vec3i[] OFFSETS = {
             /*Down*/new Vec3i(0, BUTTON_SIZE, 0),
             /*Up*/new Vec3i(0, -BUTTON_SIZE, 0),
             /*North*/new Vec3i(0, 0, 0),
@@ -120,22 +120,28 @@ public class SideSelectionPopup extends ScreenPopup
             /*West*/new Vec3i(BUTTON_SIZE, 0, 0)
     };
 
+    private final BlockState blockState;
+    private final boolean isExtraction;
+    public Direction selectedDirection;
     public List<FaceButton> faceButtons;
 
-    public SideSelectionPopup(BlockState blockState, BoolArray setDirections, int windowID, int subWindowID, int x, int y)
+    public SideSelectionPopup(BlockState blockState, boolean isExtraction, int x, int y)
     {
         super(x,y, BUTTON_SIZE * 3, BUTTON_SIZE * 3);
 
+        this.blockState = blockState;
+        this.isExtraction = isExtraction;
         faceButtons = new ArrayList<>();
+        selectedDirection = null;
         for(int i = 0; i < 6; ++i)
         {
-            FaceButton faceButton = new FaceButton( blockState, setDirections, windowID, subWindowID, x + OFFSETS[i].getX() + BUTTON_SIZE, y + OFFSETS[i].getY() + BUTTON_SIZE, BUTTON_SIZE, BUTTON_SIZE, Direction.from3DDataValue(i));
+            FaceButton faceButton = new FaceButton(x + OFFSETS[i].getX() + BUTTON_SIZE, y + OFFSETS[i].getY() + BUTTON_SIZE, BUTTON_SIZE, BUTTON_SIZE, Direction.from3DDataValue(i));
             faceButtons.add( AddListener(faceButton) );
         }
     }
 
     @Override
-    public void render(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
+    public void render(@NotNull PoseStack matrixStack, int mouseX, int mouseY, float partialTicks)
     {
         this.fillGradient(matrixStack, x, y, x + width, y + height, MultiScreen.BG_COLOUR, MultiScreen.BG_COLOUR);
         for(FaceButton faceButton : faceButtons)
@@ -144,6 +150,16 @@ public class SideSelectionPopup extends ScreenPopup
             faceButton.render(matrixStack, mouseX, mouseY, partialTicks);
         }
         MultiScreen.RenderBorder(this, matrixStack, x, y, getBlitOffset(), width, height);
+    }
+
+    public void SetSelectedDirection(Direction direction)
+    {
+        selectedDirection = direction;
+    }
+
+    public Direction GetSelectedDirection()
+    {
+        return selectedDirection;
     }
 
     @Override
@@ -157,14 +173,16 @@ public class SideSelectionPopup extends ScreenPopup
     }
 
     @Override
-    public NarrationPriority narrationPriority()
+    public @NotNull NarrationPriority narrationPriority()
     {
         return NarrationPriority.FOCUSED;
     }
 
     @Override
-    public void updateNarration(NarrationElementOutput p_169152_)
+    public void updateNarration(@NotNull NarrationElementOutput p_169152_)
     {
 
     }
+
+    public abstract void OnSelectedDirectionChange(Direction newDirection);
 }

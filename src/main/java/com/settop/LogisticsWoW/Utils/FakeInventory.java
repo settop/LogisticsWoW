@@ -66,6 +66,7 @@ public class FakeInventory implements Container
             {
                 stacks.set(index, ItemStack.EMPTY);
             }
+            setChanged();
         }
         return ItemStack.EMPTY;
     }
@@ -76,6 +77,7 @@ public class FakeInventory implements Container
         if(index < stacks.size())
         {
             stacks.set(index, ItemStack.EMPTY);
+            setChanged();
         }
         return ItemStack.EMPTY;
     }
@@ -90,6 +92,7 @@ public class FakeInventory implements Container
             {
                 stacks.get(index).setCount(1);
             }
+            setChanged();
         }
     }
 
@@ -112,6 +115,7 @@ public class FakeInventory implements Container
         {
             stacks.set(i, ItemStack.EMPTY);
         }
+        setChanged();
     }
 
     public CompoundTag Save(CompoundTag tag)

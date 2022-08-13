@@ -2,6 +2,7 @@ package com.settop.LogisticsWoW.Utils;
 
 import com.mojang.math.Vector3f;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Tuple;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
@@ -105,4 +106,7 @@ public class Utils
 
         return new Tuple<>(aVec.add(offset), bVec.subtract(offset));
     }
+
+    public static int DirectionToInt(Direction dir) { return dir != null ? dir.get3DDataValue() : 7; }
+    public static Direction IntToDirection(int i) { return i < 7 ? Direction.from3DDataValue(i) : null; }
 }
