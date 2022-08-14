@@ -108,36 +108,7 @@ public class ItemExtractionEnhancement extends ExtractionEnhancement
     @Override
     public void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn)
     {
-        tooltip.add(new TranslatableComponent(filter.GetIsWhiteList() ? "logwow.whitelist" : "logwow.blacklist"));
-        switch (filter.GetEffectiveFilterType())
-        {
-            case Type:
-            {
-                tooltip.add(new TranslatableComponent("logwow.item_filter").append(":"));
-                for(int i = 0; i < filter.GetFilter().getContainerSize(); ++i)
-                {
-                    ItemStack item = filter.GetFilter().getItem(i);
-                    if(!item.isEmpty())
-                    {
-                        tooltip.add(new TextComponent(" - ").append(item.getDisplayName()));
-                    }
-                }
-            }
-            break;
-            case Tag:
-            {
-                tooltip.add(new TranslatableComponent("logwow.tag_filter"));
-                for(ResourceLocation tag : filter.GetTagFilters())
-                {
-                    tooltip.add(new TextComponent(" - ").append(new TextComponent(tag.toString())));
-                }
-            }
-            break;
-            case Default:
-            {
-                tooltip.add(new TranslatableComponent("logwow.default_store"));
-            }
-        }
+        filter.AddTooltip(tooltip, flagIn);
     }
 
     @Override

@@ -43,7 +43,7 @@ public class ItemFilterSubScreen extends SubScreen
     {
         public WhitelistToggle(int x, int y)
         {
-            super(x, y, 16, null);
+            super(x, y, 8, null);
         }
 
         @Override
@@ -87,6 +87,10 @@ public class ItemFilterSubScreen extends SubScreen
             ItemFilterSubMenu filterContainer = (ItemFilterSubMenu)GetSubContainer();
 
             int nextValue = filterContainer.GetFilterType().ordinal() + 1;
+            if(filterContainer.hideDefaultFilter && nextValue == Constants.eFilterType.Default.ordinal())
+            {
+                ++nextValue;
+            }
             if(nextValue >= Constants.eFilterType.values().length)
             {
                 nextValue = 0;
@@ -157,7 +161,7 @@ public class ItemFilterSubScreen extends SubScreen
     {
         public MatchNBTToggle(int x, int y)
         {
-            super(x, y, 16, null);
+            super(x, y, 8, null);
         }
 
         @Override
@@ -193,8 +197,6 @@ public class ItemFilterSubScreen extends SubScreen
 
     public class PolymorphicFilterButton extends SmallButton
     {
-        private int lastTextWidth = 8;
-
         public PolymorphicFilterButton(int x, int y)
         {
             super(x, y, 16, new TextComponent(""));
@@ -250,6 +252,7 @@ public class ItemFilterSubScreen extends SubScreen
     }
 
     public static final int BUTTON_Y_OFFSET = 16;
+    public static final int SMALL_BUTTON_OFFSET = 8;
 
     private final int numButtonPositionsToSkip;
     private FilterTypeCycle filterTypeCycle;
@@ -288,12 +291,13 @@ public class ItemFilterSubScreen extends SubScreen
         filterTypeCycle = AddWidget(new FilterTypeCycle(guiLeft + xPos, guiTop + yPos));
         yPos += BUTTON_Y_OFFSET;
 
-        if(!filterContainer.hideWhitelistAndNBT)
+        if(!filterContainer.hideWhitelist)
         {
-            whitelistToggle = AddWidget(new WhitelistToggle(guiLeft + xPos, guiTop + yPos));
-            yPos += BUTTON_Y_OFFSET;
+            whitelistToggle = AddWidget(new WhitelistToggle(guiLeft + xPos + SMALL_BUTTON_OFFSET, guiTop + yPos));
+        }
+        if(!filterContainer.hideMatchNBT)
+        {
             matchNBTToggle = AddWidget(new MatchNBTToggle(guiLeft + xPos, guiTop + yPos));
-            yPos += BUTTON_Y_OFFSET;
         }
 
         polymorphicFilterButton = AddWidget(new PolymorphicFilterButton(guiLeft + xPos, guiTop + GetSubContainer().GetYPos() + 56));
@@ -336,9 +340,12 @@ public class ItemFilterSubScreen extends SubScreen
         polymorphicFilterButton.active = polymorphicFilterButton.visible = active && filterContainer.GetFilterType() == Constants.eFilterType.Type;
         tagSelection.active = tagSelection.visible = active && (filterContainer.GetFilterType() == Constants.eFilterType.Tag);
 
-        if(!filterContainer.hideWhitelistAndNBT)
+        if(!filterContainer.hideWhitelist)
         {
             whitelistToggle.active = whitelistToggle.visible = active && filterContainer.GetFilterType() != Constants.eFilterType.Default;
+        }
+        if(!filterContainer.hideMatchNBT)
+        {
             matchNBTToggle.active = matchNBTToggle.visible = active && filterContainer.GetFilterType() == Constants.eFilterType.Type;;
         }
     }

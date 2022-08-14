@@ -5,18 +5,20 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.tags.ITag;
 import net.minecraftforge.registries.tags.ITagManager;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class ItemFilter
 {
@@ -28,16 +30,26 @@ public class ItemFilter
     private Constants.eFilterType filterType = Constants.eFilterType.Type;
     private boolean isWhiteList = true;
     private boolean matchNBT = false;
-    private final FakeInventory filter = new FakeInventory(FILTER_SIZE, false)
-    {
-        @Override
-        public void setChanged()
-        {
-            super.setChanged();
-            cacheDirty = true;
-        }
-    };
+    private final FakeInventory filter;
     private final ArrayList<ResourceLocation> tagFilter = new ArrayList<>();
+
+    public ItemFilter(boolean includeCounts)
+    {
+        filter = new FakeInventory(FILTER_SIZE, includeCounts)
+        {
+            @Override
+            public void setChanged()
+            {
+                super.setChanged();
+                cacheDirty = true;
+            }
+        };
+    }
+
+    public ItemFilter()
+    {
+        this(false);
+    }
 
     //cached data
     private boolean cacheDirty = false;
@@ -323,5 +335,39 @@ public class ItemFilter
             }
         }
         UpdateCache();
+    }
+
+    public void AddTooltip(@NotNull List<Component> tooltip, @NotNull TooltipFlag flagIn)
+    {
+        tooltip.add(new TranslatableComponent(GetIsWhiteList() ? "logwow.whitelist" : "logwow.blacklist"));
+        switch (GetEffectiveFilterType())
+        {
+            case Type:
+            {
+                tooltip.add(new TranslatableComponent("logwow.item_filter").append(":"));
+                for(int i = 0; i < GetFilter().getContainerSize(); ++i)
+                {
+                    ItemStack item = GetFilter().getItem(i);
+                    if(!item.isEmpty())
+                    {
+                        tooltip.add(new TextComponent(" - ").append(item.getDisplayName()));
+                    }
+                }
+            }
+            break;
+            case Tag:
+            {
+                tooltip.add(new TranslatableComponent("logwow.tag_filter"));
+                for(ResourceLocation tag : GetTagFilters())
+                {
+                    tooltip.add(new TextComponent(" - ").append(new TextComponent(tag.toString())));
+                }
+            }
+            break;
+            case Default:
+            {
+                tooltip.add(new TranslatableComponent("logwow.default_store"));
+            }
+        }
     }
 }

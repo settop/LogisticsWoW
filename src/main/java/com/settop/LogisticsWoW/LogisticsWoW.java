@@ -14,6 +14,7 @@ import com.settop.LogisticsWoW.WispNetwork.Tasks.ItemTransferTask;
 import com.settop.LogisticsWoW.WispNetwork.Tasks.WispTaskFactory;
 import com.settop.LogisticsWoW.Wisps.Enhancements.IEnhancement;
 import com.settop.LogisticsWoW.Wisps.Enhancements.ItemExtractionEnhancement;
+import com.settop.LogisticsWoW.Wisps.Enhancements.ItemInsertionEnhancement;
 import com.settop.LogisticsWoW.Wisps.Enhancements.ItemStorageEnhancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
@@ -207,6 +208,7 @@ public class LogisticsWoW
         // Enhancement Items
         public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(ItemStorageEnhancement.FACTORY) );
         public static final RegistryObject<Item> WISP_ITEM_EXTRACTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_extraction_enhancement", () -> new WispEnhancementItem(ItemExtractionEnhancement.FACTORY) );
+        public static final RegistryObject<Item> WISP_ITEM_INSERTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_insertion_enhancement", () -> new WispEnhancementItem(ItemInsertionEnhancement.FACTORY) );
 
     }
 

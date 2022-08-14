@@ -123,7 +123,7 @@ public class ItemStorageEnhancement extends StorageEnhancement
                 {
                     reservation.SetInvalid();
                 }
-                return null;
+                return stack;
             }
 
             return inv.InsertItems(reservation, stack);

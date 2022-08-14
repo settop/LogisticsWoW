@@ -1,8 +1,6 @@
 package com.settop.LogisticsWoW.GUI.SubMenus;
 
 import com.settop.LogisticsWoW.Client.Client;
-import com.settop.LogisticsWoW.Client.Screens.MultiScreen;
-import com.settop.LogisticsWoW.Client.Screens.SubScreens.SubScreen;
 import com.settop.LogisticsWoW.GUI.FakeSlot;
 import com.settop.LogisticsWoW.GUI.IActivatableSlot;
 import com.settop.LogisticsWoW.Utils.Constants;
@@ -22,7 +20,7 @@ import java.util.HashSet;
 public abstract class ItemFilterSubMenu extends SubMenu
 {
     private final ItemFilter sourceFilter;
-    private final FakeInventory filterInv = new FakeInventory( ItemFilter.FILTER_SIZE, false );
+    private final FakeInventory filterInv;
     private final StringVariableArrayReferenceHolder tagFilters = new StringVariableArrayReferenceHolder(';');
     private final DataSlot isWhitelist = DataSlot.standalone();
     private final DataSlot filterType = DataSlot.standalone();
@@ -30,7 +28,9 @@ public abstract class ItemFilterSubMenu extends SubMenu
 
     private final FakeInventory tagGetHelper = new FakeInventory( 1, false );
 
-    public final boolean hideWhitelistAndNBT;
+    public final boolean hideWhitelist;
+    public final boolean hideMatchNBT;
+    public final boolean hideDefaultFilter;
 
     public static final int FILTER_TYPE_PROPERTY_ID = 0;
     public static final int WHITELIST_PROPERTY_ID = 1;
@@ -47,7 +47,7 @@ public abstract class ItemFilterSubMenu extends SubMenu
     public static final int TAG_FETCH_HELPER_SLOT_X = 1;
     public static final int TAG_FETCH_HELPER_SLOT_Y = 64;
 
-    public ItemFilterSubMenu(ItemFilter filter, int xPos, int yPos, boolean hideWhitelistAndNBT)
+    public ItemFilterSubMenu(ItemFilter filter, int xPos, int yPos, boolean hideWhitelist, boolean hideMatchNBT, boolean hideDefaultFilter)
     {
         super(xPos, yPos);
         sourceFilter = filter;
@@ -55,7 +55,11 @@ public abstract class ItemFilterSubMenu extends SubMenu
         addDataSlot(isWhitelist);
         addDataSlot(matchNBT);
         trackStr(tagFilters);
-        this.hideWhitelistAndNBT = hideWhitelistAndNBT;
+        this.hideWhitelist = hideWhitelist;
+        this.hideMatchNBT = hideMatchNBT;
+        this.hideDefaultFilter = hideDefaultFilter;
+
+        filterInv = new FakeInventory( ItemFilter.FILTER_SIZE, filter.GetFilter().includeCounts );
 
         for(int i = 0; i < filterInv.getContainerSize(); ++i)
         {

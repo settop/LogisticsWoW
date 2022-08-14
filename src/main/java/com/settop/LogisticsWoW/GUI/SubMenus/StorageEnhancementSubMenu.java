@@ -37,7 +37,7 @@ public class StorageEnhancementSubMenu extends ItemFilterSubMenu
 
     public StorageEnhancementSubMenu(ItemStorageEnhancement enhancement, int xPos, int yPos, BlockState blockState, BlockEntity blockEntity, WispInteractionNodeBase parentWisp)
     {
-        super(enhancement.GetFilter(), xPos, yPos, true);
+        super(enhancement.GetFilter(), xPos, yPos, true, true, false);
         addDataSlot(priority);
         this.enhancement = enhancement;
         this.blockState = blockState;
