@@ -6,6 +6,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -350,7 +351,12 @@ public class ItemFilter
                     ItemStack item = GetFilter().getItem(i);
                     if(!item.isEmpty())
                     {
-                        tooltip.add(new TextComponent(" - ").append(item.getDisplayName()));
+                        MutableComponent component = new TextComponent(" - ").append(item.getDisplayName());
+                        if(filter.includeCounts)
+                        {
+                            component.append(new TextComponent("(%d)".formatted(item.getCount())));
+                        }
+                        tooltip.add(component);
                     }
                 }
             }

@@ -207,8 +207,8 @@ public class LogisticsWoW
 
         // Enhancement Items
         public static final RegistryObject<Item> WISP_STORAGE_ENHANCEMENT_ITEM = ITEMS.register("wisp_storage_enhancement", () -> new WispEnhancementItem(ItemStorageEnhancement.FACTORY) );
-        public static final RegistryObject<Item> WISP_ITEM_EXTRACTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_extraction_enhancement", () -> new WispEnhancementItem(ItemExtractionEnhancement.FACTORY) );
-        public static final RegistryObject<Item> WISP_ITEM_INSERTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_insertion_enhancement", () -> new WispEnhancementItem(ItemInsertionEnhancement.FACTORY) );
+        public static final RegistryObject<Item> WISP_ITEM_EXTRACTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_extraction_enhancement", () -> new WispEnhancementItem(ItemExtractionEnhancement.FACTORY, true) );
+        public static final RegistryObject<Item> WISP_ITEM_INSERTION_ENHANCEMENT_ITEM = ITEMS.register("wisp_item_insertion_enhancement", () -> new WispEnhancementItem(ItemInsertionEnhancement.FACTORY, true) );
 
     }
 

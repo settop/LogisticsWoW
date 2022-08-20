@@ -56,9 +56,14 @@ public class WispEnhancementItem extends Item
 
     public WispEnhancementItem(IEnhancement.IFactory enhancementFactory)
     {
+        this(enhancementFactory, false);
+    }
+
+    public WispEnhancementItem(IEnhancement.IFactory enhancementFactory, boolean allowMultiplePerNode)
+    {
         super(new Item.Properties().stacksTo(64).tab(CreativeModeTab.TAB_MISC));
         this.enhancementFactory = enhancementFactory;
-        this.allowMultiplePerNode = false;
+        this.allowMultiplePerNode = allowMultiplePerNode;
     }
 
     @Override
