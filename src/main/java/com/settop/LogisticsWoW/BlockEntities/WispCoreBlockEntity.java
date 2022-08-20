@@ -15,18 +15,12 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 
 public class WispCoreBlockEntity extends BlockEntity
 {
-    /*
-    static public final ResourceLocation[] RING_BLOCK_TAGS =
-            {
-                    new ResourceLocation("forge", "storage_blocks/gold"),
-                    new ResourceLocation("forge", "storage_blocks/quartz")
-            };
-     */
     //filled in in LogisticsWoW::setup
     static public ArrayList<TagKey<Block>> RING_BLOCK_TAGS;
 
@@ -36,8 +30,6 @@ public class WispCoreBlockEntity extends BlockEntity
     private boolean cachedMultiblockComplete = false;
     private BlockState[][][] ringOriginalBlocks;
     private WispNetwork network;
-
-    private boolean needToLoadNetwork = false;
 
     public WispCoreBlockEntity(BlockPos pos, BlockState state)
     {
@@ -82,6 +74,7 @@ public class WispCoreBlockEntity extends BlockEntity
 
     public void CheckMultiBlockForm()
     {
+        assert level != null;
         BlockPos myBlockPos = getBlockPos();
 
         if(IsMultiblockComplete())
@@ -139,6 +132,8 @@ public class WispCoreBlockEntity extends BlockEntity
 
     private void FormMultiBlock()
     {
+        assert level != null;
+
         BlockPos myBlockPos = getBlockPos();
         WispCore coreBlock = (WispCore)LogisticsWoW.Blocks.WISP_CORE.get();
 
@@ -168,14 +163,14 @@ public class WispCoreBlockEntity extends BlockEntity
 
         if(!level.isClientSide)
         {
-            network = GlobalWispData.CreateOrClaimWispNetwork(level, getBlockPos());
-            GlobalWispData.TryAndConnectNetworkToNodes(level, network);
+            network.SetTier(3);
         }
         setChanged();
     }
 
     public BlockState BreakMultiBlock(BlockPos brokenPos)
     {
+        assert level != null;
 
         BlockPos myBlockPos = getBlockPos();
         WispCore coreBlock = (WispCore)LogisticsWoW.Blocks.WISP_CORE.get();
@@ -206,8 +201,7 @@ public class WispCoreBlockEntity extends BlockEntity
 
         if(!level.isClientSide)
         {
-            GlobalWispData.RemoveWispNetwork(level, network);
-            network = null;
+            network.SetTier(1);
         }
         ringOriginalBlocks = null;
         setChanged();
@@ -222,14 +216,14 @@ public class WispCoreBlockEntity extends BlockEntity
     }
 
     @Override
-    public void setBlockState(BlockState blockState)
+    public void setBlockState(@NotNull BlockState blockState)
     {
         super.setBlockState(blockState);
         cachedMultiblockComplete = false;
     }
 
     @Override
-    public void saveAdditional(CompoundTag compound)
+    public void saveAdditional(@NotNull CompoundTag compound)
     {
         super.saveAdditional(compound);
         if(ringOriginalBlocks != null)
@@ -256,12 +250,10 @@ public class WispCoreBlockEntity extends BlockEntity
             }
             compound.put("RingOriginalBlocks", originalBlockNBT);
         }
-
-        compound.putBoolean("HasNetwork", network != null);
     }
 
     @Override
-    public void load(CompoundTag nbt)
+    public void load(@NotNull CompoundTag nbt)
     {
         super.load(nbt);
 
@@ -286,21 +278,50 @@ public class WispCoreBlockEntity extends BlockEntity
         {
             ringOriginalBlocks = null;
         }
+    }
 
-        needToLoadNetwork = nbt.getBoolean("HasNetwork");
+    public void onPlace()
+    {
+        assert level != null;
+        if(!level.isClientSide)
+        {
+            assert network != null;
+            GlobalWispData.TryAndConnectNetworkToNodes(level, network);
+        }
+    }
+
+    @Override
+    public void setRemoved()
+    {
+        super.setRemoved();
+        assert level != null;
+        if(!level.isClientSide && network.claimed)
+        {
+            GlobalWispData.RemoveWispNetwork(level, network);
+        }
     }
 
     @Override
     public void onLoad()
     {
         super.onLoad();
-        if(!level.isClientSide && needToLoadNetwork)
+        assert level != null;
+        if(!level.isClientSide && network == null)
         {
-            needToLoadNetwork = false;
             network = GlobalWispData.CreateOrClaimWispNetwork(level, getBlockPos());
         }
     }
 
+    @Override
+    public void onChunkUnloaded()
+    {
+        super.onChunkUnloaded();
+        assert level != null;
+        if(!level.isClientSide)
+        {
+            network.claimed = false;
+        }
+    }
 
     @OnlyIn(Dist.CLIENT)
     @Override

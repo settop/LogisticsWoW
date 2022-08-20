@@ -55,7 +55,6 @@ public abstract class StorageEnhancement implements IEnhancement
                 else
                 {
                     //Ignore the tick offset whilst sleeping, don't care about missing some ticks whilst asleep
-                    //ToDo: Scale the sleep time based on how active this extraction is
                     return OptionalInt.of(currentTickTime + Constants.SLEEP_TICK_TIMER);
                 }
             }

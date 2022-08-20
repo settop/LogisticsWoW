@@ -74,6 +74,7 @@ public class WispNetwork extends WispNode
         }
     }
 
+    private int tier = 1;
     private final HashMap<ResourceLocation, DimensionData> dimensionData = new HashMap<>();
 
     private final WispTaskManager taskManager = new WispTaskManager();
@@ -83,12 +84,6 @@ public class WispNetwork extends WispNode
     private final WispNetworkResourceManagement<FluidStack> fluidManagement = new WispNetworkResourceManagement<>();
 
     private static ResourceLocation GetDim(Level level) { return level.dimension().location(); }
-
-    private static void SetupNodeConnection(WispNode nodeA, WispNode nodeB, WispNode.eConnectionType type)
-    {
-        nodeA.connectedNodes.add(new WispNode.Connection(nodeB, type));
-        nodeB.connectedNodes.add(new WispNode.Connection(nodeA, type));
-    }
 
     public WispNetwork(ResourceLocation dim, BlockPos pos)
     {
@@ -767,6 +762,12 @@ public class WispNetwork extends WispNode
         return itemManagement;
     }
     public WispNetworkResourceManagement<FluidStack> GetFluidManagement(){ return fluidManagement; }
+
+    public int GetTier() { return tier; }
+    public void SetTier(int tier)
+    {
+        this.tier = tier;
+    }
     
     private @Nonnull WispNode.NextPathStep GeneratePath(WispNode start, WispNode end)
     {
@@ -929,6 +930,7 @@ public class WispNetwork extends WispNode
     {
         super.Load(GetDim(), nbt);
         CompoundTag dimensionDataNBT = nbt.getCompound("dimensionData");
+        tier = nbt.getInt("tier");
 
         for(String dimName : dimensionDataNBT.getAllKeys())
         {
@@ -1006,6 +1008,7 @@ public class WispNetwork extends WispNode
 
     public CompoundTag write(CompoundTag compound)
     {
+        compound.putInt("tier", tier);
         CompoundTag taskManagerNBT = taskManager.SerialiseNBT(this, tickTime);
         if(taskManagerNBT != null)
         {
